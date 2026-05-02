@@ -7,6 +7,9 @@ import { EnvVars } from './common/enums/env.enum';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { UserAddressesModule } from './modules/user-addresses/user-addresses.module';
+import { CartModule } from './modules/cart/cart.module';
 
 @Module({
   imports: [
@@ -32,6 +35,9 @@ import { OrdersModule } from './modules/orders/orders.module';
     CategoriesModule,
     ProductsModule,
     OrdersModule,
+    ReviewsModule,
+    UserAddressesModule,
+    CartModule,
   ],
   controllers: [],
   providers: [],

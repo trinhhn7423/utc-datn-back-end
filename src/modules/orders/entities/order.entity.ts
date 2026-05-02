@@ -2,6 +2,13 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, On
 import { UserEntity } from '../../users/entities/user.entity';
 import { PaymentMethod, PaymentStatus, OrderStatus } from '../../../common/enums/order.enum';
 import { OrderDetailEntity } from './order-detail.entity';
+import { OrderResponseDto } from '../dto/response/order.response.dto';
+
+export interface ShippingAddress {
+  name: string;
+  phone: string;
+  address: string;
+}
 
 @Entity('orders')
 export class OrderEntity {
@@ -27,18 +34,47 @@ export class OrderEntity {
   @Column({ type: 'enum', enum: OrderStatus, default: OrderStatus.PENDING })
   status: OrderStatus;
 
-  @Column({ name: 'receiver_name' })
-  receiverName: string;
-
-  @Column({ name: 'receiver_phone' })
-  receiverPhone: string;
-
-  @Column({ name: 'delivery_address' })
-  deliveryAddress: string;
+  @Column({ type: 'json', name: 'shipping_address' })
+  shippingAddress: ShippingAddress;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
   @OneToMany(() => OrderDetailEntity, (detail) => detail.order, { cascade: true })
   orderDetails: OrderDetailEntity[];
+
+  static create(
+    userId: string,
+    totalAmount: number,
+    paymentMethod: PaymentMethod,
+    shippingAddress: ShippingAddress,
+    orderDetails: OrderDetailEntity[]
+  ): OrderEntity {
+    const order = new OrderEntity();
+    order.userId = userId;
+    order.totalAmount = totalAmount;
+    order.paymentMethod = paymentMethod;
+    order.shippingAddress = shippingAddress;
+    order.status = OrderStatus.PENDING;
+    order.paymentStatus = PaymentStatus.UNPAID;
+    order.orderDetails = orderDetails;
+    return order;
+  }
+
+  toResponse(): OrderResponseDto {
+    const dto = new OrderResponseDto();
+    dto.id = this.id;
+    dto.userId = this.userId;
+    dto.totalAmount = Number(this.totalAmount);
+    dto.paymentMethod = this.paymentMethod;
+    dto.paymentStatus = this.paymentStatus;
+    dto.status = this.status;
+    dto.shippingAddress = this.shippingAddress;
+    dto.createdAt = this.createdAt;
+    
+    if (this.orderDetails) {
+      dto.orderDetails = this.orderDetails.map(detail => detail.toResponse());
+    }
+    return dto;
+  }
 }

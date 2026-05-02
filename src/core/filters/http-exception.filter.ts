@@ -4,14 +4,18 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
-import { Response as ExpressResponse } from 'express';
+import { Request, Response as ExpressResponse } from 'express';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<ExpressResponse>();
+    const request = ctx.getRequest<Request>();
 
     const status =
       exception instanceof HttpException
@@ -22,6 +26,26 @@ export class HttpExceptionFilter implements ExceptionFilter {
       exception instanceof HttpException
         ? exception.getResponse()
         : { message: 'Lỗi hệ thống' };
+
+    // Ghi log lỗi
+    const { method, url, body } = request;
+    
+    // Tạo body an toàn bằng cách loại bỏ mật khẩu nếu có
+    const safeBody = { ...body };
+    if (safeBody.password) {
+      safeBody.password = '***';
+    }
+
+    if (status >= 500) {
+      this.logger.error(
+        `[${method}] ${url} - Status: ${status} - Body: ${JSON.stringify(safeBody)}`,
+        exception instanceof Error ? exception.stack : JSON.stringify(exception),
+      );
+    } else {
+      this.logger.warn(
+        `[${method}] ${url} - Status: ${status} - Message: ${JSON.stringify(exceptionResponse)}`,
+      );
+    }
 
     let message = 'Có lỗi xảy ra';
     

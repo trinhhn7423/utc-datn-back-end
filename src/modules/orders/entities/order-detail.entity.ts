@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { OrderEntity } from './order.entity';
 import { ProductDetailEntity } from '../../products/entities/product-detail.entity';
+import { OrderDetailResponseDto } from '../dto/response/order-detail.response.dto';
 
 @Entity('order_details')
 export class OrderDetailEntity {
@@ -25,5 +26,23 @@ export class OrderDetailEntity {
   quantity: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, name: 'price_at_purchase' })
+  @Column({ type: 'decimal', precision: 12, scale: 2, name: 'price_at_purchase' })
   priceAtPurchase: number;
+
+  static create(productDetailId: number, quantity: number, price: number): OrderDetailEntity {
+    const detail = new OrderDetailEntity();
+    detail.productDetailId = productDetailId;
+    detail.quantity = quantity;
+    detail.priceAtPurchase = price;
+    return detail;
+  }
+
+  toResponse(): OrderDetailResponseDto {
+    const dto = new OrderDetailResponseDto();
+    dto.id = this.id;
+    dto.productDetailId = this.productDetailId;
+    dto.quantity = this.quantity;
+    dto.priceAtPurchase = Number(this.priceAtPurchase);
+    return dto;
+  }
 }

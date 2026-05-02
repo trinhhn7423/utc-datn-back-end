@@ -18,6 +18,6 @@ import { ProductImageRepository } from './repositories/product-image.repository'
     ProductDetailRepository,
     ProductImageRepository,
   ],
-  exports: [ProductsService, ProductRepository],
+  exports: [ProductsService, ProductRepository, ProductDetailRepository],
 })
 export class ProductsModule {}

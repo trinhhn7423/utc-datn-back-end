@@ -1,11 +1,15 @@
-import { Body, Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Post, HttpCode, HttpStatus, Patch, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/request/register.dto';
 import { LoginDto } from './dto/request/login.dto';
 import { AuthResponseDto } from './dto/response/auth.response.dto';
 import { RefreshTokenDto } from './dto/request/refresh-token.dto';
+import { ChangePasswordDto } from './dto/request/change-password.dto';
 import { UserResponseDto } from '../users/dto/response/user.response.dto';
+import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { CurrentUser } from '../../core/decorators/current-user.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -42,10 +46,25 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Làm mới Access Token' })
-  @ApiResponse({ status: 200, description: 'Cấp lại access_token mới' })
+  @ApiResponse({ status: 200, description: 'Cấp lại accessToken mới' })
   async refresh(
     @Body() refreshTokenDto: RefreshTokenDto,
-  ): Promise<{ access_token: string }> {
-    return this.authService.refresh(refreshTokenDto.refresh_token);
+  ): Promise<{ accessToken: string }> {
+    return this.authService.refresh(refreshTokenDto.refreshToken);
+  }
+
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đổi mật khẩu' })
+  @ApiResponse({ status: 200, description: 'Đổi mật khẩu thành công' })
+  @ApiResponse({ status: 400, description: 'Mật khẩu cũ không chính xác' })
+  async changePassword(
+    @CurrentUser('id') userId: string,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    await this.authService.changePassword(userId, changePasswordDto);
+    return { message: 'Đổi mật khẩu thành công' };
   }
 }

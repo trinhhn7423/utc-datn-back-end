@@ -3163,6 +3163,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"cloudinary@npm:^2.10.0":
+  version: 2.10.0
+  resolution: "cloudinary@npm:2.10.0"
+  dependencies:
+    lodash: "npm:^4.17.23"
+  checksum: 10c0/88a6c93ee43427657f82225f9970f5ea9b227787f8c02686b9ff39e9cd434fdb38b7553b8cef65ae447a06c879d623a3bbf5282ae51ce8b72eab71a7e61da1ef
+  languageName: node
+  linkType: hard
+
 "co@npm:^4.6.0":
   version: 4.6.0
   resolution: "co@npm:4.6.0"
@@ -3374,6 +3383,7 @@ __metadata:
     bcrypt: "npm:^6.0.0"
     class-transformer: "npm:^0.5.1"
     class-validator: "npm:^0.15.1"
+    cloudinary: "npm:^2.10.0"
     dayjs: "npm:^1.11.20"
     eslint: "npm:^9.18.0"
     eslint-config-prettier: "npm:^10.0.1"
@@ -5481,7 +5491,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:4.18.1, lodash@npm:^4.17.21, lodash@npm:^4.18.1":
+"lodash@npm:4.18.1, lodash@npm:^4.17.21, lodash@npm:^4.17.23, lodash@npm:^4.18.1":
   version: 4.18.1
   resolution: "lodash@npm:4.18.1"
   checksum: 10c0/757228fc68805c59789e82185135cf85f05d0b2d3d54631d680ca79ec21944ec8314d4533639a14b8bcfbd97a517e78960933041a5af17ecb693ec6eecb99a27

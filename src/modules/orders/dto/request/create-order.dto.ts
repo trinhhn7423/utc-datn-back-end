@@ -1,34 +1,30 @@
-import { IsString, IsNotEmpty, IsEnum, IsArray, ValidateNested, ArrayMinSize, IsInt, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsArray, ValidateNested, ArrayMinSize, IsInt, Min, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '../../../../common/enums/order.enum';
 
 export class OrderItemDto {
   @IsInt()
   @IsNotEmpty()
-  product_detail_id: number;
+  productDetailId: number;
 
   @IsInt()
   @Min(1)
   @IsNotEmpty()
   quantity: number;
+
+  @IsOptional()
+  @IsInt()
+  cartId?: number;
 }
 
 export class CreateOrderDto {
-  @IsString()
+  @IsInt()
   @IsNotEmpty()
-  name: string;
-
-  @IsString()
-  @IsNotEmpty()
-  phone: string;
-
-  @IsString()
-  @IsNotEmpty()
-  address: string;
+  userAddressId: number;
 
   @IsEnum(PaymentMethod)
   @IsNotEmpty()
-  payment_method: PaymentMethod;
+  paymentMethod: PaymentMethod;
 
   @IsArray()
   @ArrayMinSize(1)

@@ -3,6 +3,8 @@ import { CategoryEntity } from '../../categories/entities/category.entity';
 import { ProductDetailEntity } from './product-detail.entity';
 import { ProductImageEntity } from './product-image.entity';
 import { ProductResponseDto } from '../dto/response/product.response.dto';
+import { CreateProductDto } from '../dto/request/create-product.dto';
+import { UpdateProductDto } from '../dto/request/update-product.dto';
 
 @Entity('products')
 export class ProductEntity {
@@ -33,6 +35,24 @@ export class ProductEntity {
 
   @OneToMany(() => ProductImageEntity, (image) => image.product, { cascade: true })
   images: ProductImageEntity[];
+
+  static create(dto: CreateProductDto): ProductEntity {
+    const product = new ProductEntity();
+    product.name = dto.name;
+    product.description = dto.description;
+    product.brand = dto.brand;
+    product.origin = dto.origin;
+    product.categoryId = dto.categoryId;
+    return product;
+  }
+
+  update(dto: UpdateProductDto): void {
+    if (dto.name !== undefined) this.name = dto.name;
+    if (dto.description !== undefined) this.description = dto.description;
+    if (dto.brand !== undefined) this.brand = dto.brand;
+    if (dto.origin !== undefined) this.origin = dto.origin;
+    if (dto.categoryId !== undefined) this.categoryId = dto.categoryId;
+  }
 
   toResponse(): ProductResponseDto {
     const response = new ProductResponseDto();

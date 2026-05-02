@@ -40,6 +40,12 @@ Bạn là một Expert Backend Developer chuyên về NestJS, TypeScript và ki�
   - `dto/request/`: Các class nhận dữ liệu vào.
   - `dto/response/`: Các class định nghĩa kiểu trả về.
 - **ENTITY LOGIC**:
+  - **BẮT BUỘC** viết các hàm static (VD: `static create(...)`) bên trong Entity để đóng gói logic khởi tạo đối tượng (tránh new Entity() thủ công rải rác ở tầng Service).
+  - **BẮT BUỘC** viết các hàm instance (VD: `update(dto)`, `markAsDeleted()`) bên trong Entity để cập nhật dữ liệu hoặc thay đổi trạng thái (tránh gán `entity.field = value` rải rác ở Service).
   - Viết hàm `init()` để khởi tạo giá trị mặc định/format trước khi lưu.
   - **BẮT BUỘC** viết hàm `toResponse()` để map Entity sang Response DTO (loại bỏ trường nhạy cảm, format dữ liệu).
   - **BẮT BUỘC** đặt tên các thuộc tính (fields) trong Entity theo chuẩn `camelCase` thay vì `snake_case`. Ví dụ: `fullName`, `createdAt`, `hashedRefreshToken`. (Nếu cơ sở dữ liệu dùng `snake_case`, hãy cấu hình ánh xạ thông qua `@Column({ name: 'full_name' })`).
+
+### 8. Authentication & Authorization
+- **BẮT BUỘC** khai báo `@ApiBearerAuth()` và bảo vệ API bằng `@UseGuards(JwtAuthGuard, RolesGuard)` ở tầng Controller cho toàn bộ dự án (ngoại trừ module Auth hoặc các API public có chủ đích).
+- Có thể dùng kèm decorator `@Roles(RoleEnum.ADMIN, RoleEnum.USER)` để phân quyền linh hoạt theo từng Controller hoặc Endpoint.

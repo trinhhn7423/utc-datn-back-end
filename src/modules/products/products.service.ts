@@ -1,11 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, Like, FindOptionsWhere } from 'typeorm';
 import { ProductRepository } from './repositories/product.repository';
 import { CreateProductDto } from './dto/request/create-product.dto';
 import { UpdateProductDto } from './dto/request/update-product.dto';
 import { ProductEntity } from './entities/product.entity';
 import { ProductDetailEntity } from './entities/product-detail.entity';
 import { ProductImageEntity } from './entities/product-image.entity';
+import { ProductFilterRequestDto } from './dto/request/product-filter.request.dto';
+import { uploadToCloudinary } from '../../common/utils/cloudinary.util';
 
 @Injectable()
 export class ProductsService {
@@ -14,13 +16,34 @@ export class ProductsService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async findAll(): Promise<ProductEntity[]> {
-    return this.productRepository.find({
+  async findAll(filterDto: ProductFilterRequestDto): Promise<[ProductEntity[], number]> {
+    const { page = 1, size = 10, name, categoryId, brand, origin } = filterDto;
+    const skip = (page - 1) * size;
+
+    const where: FindOptionsWhere<ProductEntity> = {};
+
+    if (name) {
+      where.name = Like(`%${name}%`);
+    }
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+    if (brand) {
+      where.brand = Like(`%${brand}%`);
+    }
+    if (origin) {
+      where.origin = Like(`%${origin}%`);
+    }
+
+    return this.productRepository.findAndCount({
+      where,
       relations: {
         category: true,
         details: true,
         images: true,
       },
+      skip,
+      take: size,
     });
   }
 
@@ -49,34 +72,24 @@ export class ProductsService {
 
     try {
       // 1. Create Product
-      const product = new ProductEntity();
-      product.name = createProductDto.name;
-      product.description = createProductDto.description;
-      product.brand = createProductDto.brand;
-      product.origin = createProductDto.origin;
-      product.categoryId = createProductDto.categoryId;
+      const product = ProductEntity.create(createProductDto);
 
       // 2. Create Details
       if (createProductDto.details && createProductDto.details.length > 0) {
-        product.details = createProductDto.details.map((d) => {
-          const detail = new ProductDetailEntity();
-          detail.color = d.color;
-          detail.size = d.size;
-          detail.price = d.price;
-          detail.stock = d.stock;
-          return detail;
-        });
+        product.details = createProductDto.details.map((d) => ProductDetailEntity.create(d));
       }
 
-      // 3. Create Images (Mock Upload)
+      // 3. Upload Images to Cloudinary
       if (files && files.length > 0) {
-        product.images = files.map((file, index) => {
-          const image = new ProductImageEntity();
-          // Mock Cloud URL
-          image.imageUrl = `https://mock-cloud.com/images/mock-${Date.now()}-${file.originalname}`;
-          image.isThumbnail = index === 0; // First image is thumbnail
-          return image;
-        });
+        product.images = [];
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const uploadResult = await uploadToCloudinary(file, 'products');
+
+          const isThumbnail = i === 0; // First image is thumbnail
+          const image = ProductImageEntity.create(uploadResult.secure_url, isThumbnail);
+          product.images.push(image);
+        }
       }
       const savedProduct = await queryRunner.manager.save(
         ProductEntity,
@@ -105,11 +118,7 @@ export class ProductsService {
 
     try {
       // 1. Update Base Product
-      if (dto.name !== undefined) product.name = dto.name;
-      if (dto.description !== undefined) product.description = dto.description;
-      if (dto.brand !== undefined) product.brand = dto.brand;
-      if (dto.origin !== undefined) product.origin = dto.origin;
-      if (dto.categoryId !== undefined) product.categoryId = dto.categoryId;
+      product.update(dto);
 
       await queryRunner.manager.save(ProductEntity, product);
 
@@ -133,18 +142,11 @@ export class ProductsService {
           if (pd.id) {
             const detailToUpdate = existingDetails.find((ed) => ed.id === pd.id);
             if (detailToUpdate) {
-              detailToUpdate.color = pd.color;
-              detailToUpdate.size = pd.size;
-              detailToUpdate.price = pd.price;
-              detailToUpdate.stock = pd.stock;
+              detailToUpdate.update(pd);
               await queryRunner.manager.save(ProductDetailEntity, detailToUpdate);
             }
           } else {
-            const newDetail = new ProductDetailEntity();
-            newDetail.color = pd.color;
-            newDetail.size = pd.size;
-            newDetail.price = pd.price;
-            newDetail.stock = pd.stock;
+            const newDetail = ProductDetailEntity.create(pd);
             newDetail.productId = product.id;
             await queryRunner.manager.save(ProductDetailEntity, newDetail);
           }
@@ -177,10 +179,10 @@ export class ProductsService {
 
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const image = new ProductImageEntity();
-          image.imageUrl = `https://mock-cloud.com/images/mock-${Date.now()}-${file.originalname}`;
-          image.isThumbnail = !isThumbnailExists && i === 0; // Set first new image as thumbnail if no retained thumbnail
-          image.productId = product.id;
+          const uploadResult = await uploadToCloudinary(file, 'products');
+
+          const isThumbnail = !isThumbnailExists && i === 0; // Set first new image as thumbnail if no retained thumbnail
+          const image = ProductImageEntity.create(uploadResult.secure_url, isThumbnail, product.id);
           await queryRunner.manager.save(ProductImageEntity, image);
         }
       }

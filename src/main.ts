@@ -8,6 +8,8 @@ import { HttpExceptionFilter } from './core/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.setGlobalPrefix('api/v1');
+
   // Global ValidationPipe
   app.useGlobalPipes(
     new ValidationPipe({
@@ -35,7 +37,7 @@ async function bootstrap() {
 
   await app.listen(process.env.API_PORT ?? 3000);
   console.log(
-    `Application is running on: http://localhost:${process.env.API_PORT ?? 3000}`,
+    `Application is running on: http://localhost:${process.env.API_PORT ?? 3000}/api/v1`,
   );
 }
 bootstrap();

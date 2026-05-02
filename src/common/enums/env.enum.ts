@@ -6,4 +6,5 @@ export enum EnvVars {
   DB_USERNAME = 'DB_USERNAME',
   DB_PASSWORD = 'DB_PASSWORD',
   DB_DATABASE = 'DB_DATABASE',
+  
 }

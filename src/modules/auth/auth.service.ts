@@ -1,13 +1,10 @@
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { UsersRepository } from '../users/users.repository';
 import { RegisterDto } from './dto/request/register.dto';
 import { LoginDto } from './dto/request/login.dto';
+import { ChangePasswordDto } from './dto/request/change-password.dto';
 import { AuthResponseDto } from './dto/response/auth.response.dto';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
@@ -57,14 +54,13 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
-    const user = await this.usersRepository.findOne({
-      where: {
-        email: loginDto.email,
-      },
-      relations: {
-        role: true,
-      },
-    });
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.role', 'role')
+      .leftJoinAndSelect('user.addresses', 'addresses')
+      .addSelect('user.password')
+      .where('user.email = :email', { email: loginDto.email })
+      .getOne();
 
     if (!user) {
       throw new UnauthorizedException('Thông tin đăng nhập không chính xác');
@@ -83,7 +79,7 @@ export class AuthService {
       user.role?.name || 'USER',
     );
 
-    const hashedRefreshToken = await bcrypt.hash(tokens.refresh_token, 10);
+    const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 10);
     user.updateRefreshToken(hashedRefreshToken);
     await this.usersRepository.save(user);
 
@@ -93,17 +89,16 @@ export class AuthService {
     };
   }
 
-  async refresh(refreshToken: string): Promise<{ access_token: string }> {
+  async refresh(refreshToken: string): Promise<{ accessToken: string }> {
     try {
       const payload = await this.jwtService.verifyAsync(refreshToken, {
         secret: this.configService.get<string>(EnvVars.JWT_REFRESH_SECRET),
       });
-
-      console.log('payload', payload);
-
-      const user = await this.usersRepository.findOneBy({
-        id: payload.sub,
-      });
+      const user = await this.usersRepository
+        .createQueryBuilder('user')
+        .addSelect('user.hashedRefreshToken')
+        .where('user.id = :id', { id: payload.sub })
+        .getOne();
 
       if (!user) {
         throw new UnauthorizedException('User không tồn tại');
@@ -118,7 +113,7 @@ export class AuthService {
         throw new UnauthorizedException('Refresh token không hợp lệ');
       }
 
-      const access_token = await this.jwtService.signAsync(
+      const accessToken = await this.jwtService.signAsync(
         { sub: user.id, role: payload.role },
         {
           secret: this.configService.get<string>(EnvVars.JWT_ACCESS_SECRET),
@@ -126,7 +121,7 @@ export class AuthService {
         },
       );
 
-      return { access_token };
+      return { accessToken };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
@@ -138,7 +133,7 @@ export class AuthService {
   }
 
   private async generateTokens(userId: string, role: string) {
-    const [access_token, refresh_token] = await Promise.all([
+    const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
         { sub: userId, role },
         {
@@ -155,6 +150,31 @@ export class AuthService {
       ),
     ]);
 
-    return { access_token, refresh_token };
+    return { accessToken, refreshToken };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.id = :id', { id: userId })
+      .getOne();
+
+    if (!user) {
+      throw new UnauthorizedException('Người dùng không tồn tại');
+    }
+
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new BadRequestException('Mật khẩu xác nhận không khớp');
+    }
+
+    const isPasswordValid = await bcrypt.compare(dto.oldPassword, user.password);
+    if (!isPasswordValid) {
+      throw new BadRequestException('Mật khẩu cũ không chính xác');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(dto.newPassword, 10);
+    user.password = hashedNewPassword;
+    await this.usersRepository.save(user);
   }
 }

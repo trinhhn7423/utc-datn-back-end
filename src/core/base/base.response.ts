@@ -1,27 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class PaginationMeta {
-  @ApiProperty()
-  totalElement: number;
-
-  constructor(totalElement: number) {
-    this.totalElement = totalElement;
-  }
-}
-
-export class PaginatedResponse<T> {
-  @ApiProperty({ isArray: true })
-  data: T[];
-
-  @ApiProperty()
-  meta: PaginationMeta;
-
-  constructor(data: T[], totalElement: number) {
-    this.data = data;
-    this.meta = new PaginationMeta(totalElement);
-  }
-}
-
 export class BaseResponse<T> {
   @ApiProperty()
   statusCode: number;
@@ -32,9 +10,18 @@ export class BaseResponse<T> {
   @ApiProperty()
   data: T;
 
-  constructor(statusCode: number, message: string, data: T) {
+  @ApiProperty()
+  totalElement?: number;
+
+  constructor(
+    statusCode: number,
+    message: string,
+    data: T,
+    totalElement?: number,
+  ) {
     this.statusCode = statusCode;
     this.message = message;
     this.data = data;
+    this.totalElement = totalElement;
   }
 }

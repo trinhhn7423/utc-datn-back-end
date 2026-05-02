@@ -20,6 +20,16 @@ export class ProductImageEntity {
   @JoinColumn({ name: 'product_id' })
   product: ProductEntity;
 
+  static create(imageUrl: string, isThumbnail: boolean, productId?: string): ProductImageEntity {
+    const image = new ProductImageEntity();
+    image.imageUrl = imageUrl;
+    image.isThumbnail = isThumbnail;
+    if (productId) {
+      image.productId = productId;
+    }
+    return image;
+  }
+
   toResponse(): ProductImageResponseDto {
     const response = new ProductImageResponseDto();
     response.id = this.id;

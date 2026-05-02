@@ -3,16 +3,53 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, FindOptionsWhere, In } from 'typeorm';
+import * as _ from 'lodash';
 import { CreateOrderDto } from './dto/request/create-order.dto';
 import { OrderEntity } from './entities/order.entity';
 import { OrderDetailEntity } from './entities/order-detail.entity';
 import { ProductDetailEntity } from '../products/entities/product-detail.entity';
 import { OrderStatus, PaymentStatus } from '../../common/enums/order.enum';
+import { OrderFilterRequestDto } from './dto/request/order-filter.request.dto';
+import { OrderRepository } from './repositories/order.repository';
+import { UserAddressEntity } from '../user-addresses/entities/user-address.entity';
+import { CartItemEntity } from '../cart/entities/cart-item.entity';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly orderRepository: OrderRepository,
+  ) {}
+
+  async findAll(
+    filterDto: OrderFilterRequestDto,
+  ): Promise<[OrderEntity[], number]> {
+    const { page = 1, size = 10, status, userId } = filterDto;
+    const skip = (page - 1) * size;
+    const where: FindOptionsWhere<OrderEntity> = {};
+
+    if (status) {
+      where.status = status;
+    }
+    if (userId) {
+      where.userId = userId;
+    }
+
+    return this.orderRepository.findAndCount({
+      where,
+      relations: {
+        orderDetails: {
+          productDetail: true,
+        },
+      },
+      skip,
+      take: size,
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  }
 
   async createOrder(
     userId: string,
@@ -23,67 +60,116 @@ export class OrdersService {
     await queryRunner.startTransaction();
 
     try {
-      let totalAmount = 0;
-      const orderDetails: OrderDetailEntity[] = [];
+      const productDetailIds = createOrderDto.items.map(
+        (item) => item.productDetailId,
+      );
+      const productDetails = await queryRunner.manager.find(
+        ProductDetailEntity,
+        {
+          where: { id: In(productDetailIds) },
+          lock: { mode: 'pessimistic_write' },
+        },
+      );
+      const productDetailsMap = _.mapKeys(productDetails, (x) => x.id);
 
-      // Tuyệt đối KHÔNG sử dụng Promise.all. Xử lý tuần tự bằng for...of
-      for (const item of createOrderDto.items) {
-        // Tìm ProductDetail (Có sử dụng Pessimistic Write Lock để chống Race Condition khi concurrent booking)
-        const productDetail = await queryRunner.manager.findOne(
-          ProductDetailEntity,
-          {
-            where: { id: item.product_detail_id },
-            lock: { mode: 'pessimistic_write' }, //pessimistic_write có tác dụng như thế nào , đó là khóa dữ liệu  của cột product_detail_entity
-          },
-        );
+      const cartIds = createOrderDto.items
+        .map((item) => item.cartId)
+        .filter((id): id is number => id !== undefined && id !== null);
 
-        if (!productDetail) {
-          throw new NotFoundException(
-            `Sản phẩm với ID ${item.product_detail_id} không tồn tại`,
-          );
-        }
-
-        if (productDetail.stock < item.quantity) {
-          throw new BadRequestException(
-            `Sản phẩm ${item.product_detail_id} không đủ số lượng (Còn: ${productDetail.stock})`,
-          );
-        }
-
-        // Tính tổng tiền
-        const price = Number(productDetail.price);
-        totalAmount += price * item.quantity;
-
-        // Trừ stock và lưu tuần tự
-        productDetail.stock -= item.quantity;
-        await queryRunner.manager.save(ProductDetailEntity, productDetail);
-
-        // Tạo OrderDetail tạm
-        const orderDetail = new OrderDetailEntity();
-        orderDetail.productDetailId = productDetail.id;
-        orderDetail.quantity = item.quantity;
-        orderDetail.priceAtPurchase = price;
-        orderDetails.push(orderDetail);
+      let cartItemsMap: Record<string, CartItemEntity> = {};
+      if (cartIds.length > 0) {
+        const cartItems = await queryRunner.manager.find(CartItemEntity, {
+          where: { id: In(cartIds), userId },
+        });
+        cartItemsMap = _.mapKeys(cartItems, (x) => x.id);
       }
 
-      // Khởi tạo Order
-      const order = new OrderEntity();
-      order.userId = userId;
-      order.totalAmount = totalAmount;
-      order.paymentMethod = createOrderDto.payment_method;
-      order.receiverName = createOrderDto.name;
-      order.receiverPhone = createOrderDto.phone;
-      order.deliveryAddress = createOrderDto.address;
-      order.status = OrderStatus.PENDING;
-      order.paymentStatus = PaymentStatus.UNPAID;
+      const {
+        totalAmount,
+        orderDetails,
+        productDetailsToUpdate,
+        cartItemsToRemove,
+      } = createOrderDto.items.reduce(
+        (acc, item) => {
+          const productDetail = productDetailsMap[item.productDetailId];
+          if (!productDetail) {
+            throw new NotFoundException(
+              `Sản phẩm với ID ${item.productDetailId} không tồn tại`,
+            );
+          }
 
-      // Lưu Order
+          if (productDetail.stock < item.quantity) {
+            throw new BadRequestException(
+              `Sản phẩm ${item.productDetailId} không đủ số lượng (Còn: ${productDetail.stock})`,
+            );
+          }
+
+          const price = Number(productDetail.price);
+          acc.totalAmount += price * item.quantity;
+
+          productDetail.reduceStock(item.quantity);
+          acc.productDetailsToUpdate.push(productDetail);
+
+          const orderDetail = OrderDetailEntity.create(
+            productDetail.id,
+            item.quantity,
+            price,
+          );
+          acc.orderDetails.push(orderDetail);
+
+          if (item.cartId && cartItemsMap[item.cartId]) {
+            acc.cartItemsToRemove.push(cartItemsMap[item.cartId]);
+          }
+
+          return acc;
+        },
+        {
+          totalAmount: 0,
+          orderDetails: [] as OrderDetailEntity[],
+          productDetailsToUpdate: [] as ProductDetailEntity[],
+          cartItemsToRemove: [] as CartItemEntity[],
+        },
+      );
+
+      if (productDetailsToUpdate.length > 0) {
+        await queryRunner.manager.save(
+          ProductDetailEntity,
+          productDetailsToUpdate,
+        );
+      }
+
+      const userAddress = await queryRunner.manager.findOne(UserAddressEntity, {
+        where: { id: createOrderDto.userAddressId, userId },
+      });
+
+      if (!userAddress) {
+        throw new NotFoundException(
+          'Địa chỉ giao hàng không tồn tại hoặc không thuộc quyền sở hữu',
+        );
+      }
+
+      const shippingAddress = {
+        name: userAddress.receiverName,
+        phone: userAddress.receiverPhone,
+        address: userAddress.detailAddress,
+      };
+
+      const order = OrderEntity.create(
+        userId,
+        totalAmount,
+        createOrderDto.paymentMethod,
+        shippingAddress,
+        orderDetails,
+      );
+
       const savedOrder = await queryRunner.manager.save(OrderEntity, order);
 
-      // Gán order_id và lưu toàn bộ OrderDetail
-      for (const detail of orderDetails) {
-        detail.orderId = savedOrder.id;
+      if (cartItemsToRemove.length > 0) {
+        for (const cartItem of cartItemsToRemove) {
+          cartItem.markAsDeleted();
+        }
+        await queryRunner.manager.save(CartItemEntity, cartItemsToRemove);
       }
-      await queryRunner.manager.save(OrderDetailEntity, orderDetails);
 
       await queryRunner.commitTransaction();
 
@@ -139,7 +225,7 @@ export class OrdersService {
           );
 
           if (productDetail) {
-            productDetail.stock += detail.quantity; // CỘNG LẠI TỒN KHO
+            productDetail.increaseStock(detail.quantity); // CỘNG LẠI TỒN KHO
             await queryRunner.manager.save(ProductDetailEntity, productDetail);
           }
         }
