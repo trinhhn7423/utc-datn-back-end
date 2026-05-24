@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { UsersRepository } from '../users/users.repository';
@@ -77,6 +82,48 @@ export class AuthService {
     const tokens = await this.generateTokens(
       user.id,
       user.role?.name || 'USER',
+    );
+
+    const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 10);
+    user.updateRefreshToken(hashedRefreshToken);
+    await this.usersRepository.save(user);
+
+    return {
+      ...tokens,
+      user: user.toResponse(),
+    };
+  }
+
+  async adminLogin(loginDto: LoginDto): Promise<AuthResponseDto> {
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.role', 'role')
+      .leftJoinAndSelect('user.addresses', 'addresses')
+      .addSelect('user.password')
+      .where('user.email = :email', { email: loginDto.email })
+      .getOne();
+
+    if (!user) {
+      throw new UnauthorizedException('Thông tin đăng nhập không chính xác');
+    }
+
+    if (user.role?.name !== 'ADMIN') {
+      throw new UnauthorizedException(
+        'Tài khoản không có quyền truy cập trang quản trị',
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Thông tin đăng nhập không chính xác');
+    }
+
+    const tokens = await this.generateTokens(
+      user.id,
+      user.role?.name || 'ADMIN',
     );
 
     const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 10);
@@ -168,7 +215,10 @@ export class AuthService {
       throw new BadRequestException('Mật khẩu xác nhận không khớp');
     }
 
-    const isPasswordValid = await bcrypt.compare(dto.oldPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      dto.oldPassword,
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new BadRequestException('Mật khẩu cũ không chính xác');
     }

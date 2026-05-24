@@ -3,12 +3,12 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Body,
   Param,
   UseInterceptors,
   UploadedFiles,
   UploadedFile,
-  ParseUUIDPipe,
   Query,
   UseGuards,
   BadRequestException,
@@ -29,6 +29,7 @@ import { CreateProductDto } from './dto/request/create-product.dto';
 import { UpdateProductDto } from './dto/request/update-product.dto';
 import { ProductResponseDto } from './dto/response/product.response.dto';
 import { ProductFilterRequestDto } from './dto/request/product-filter.request.dto';
+import { UpdateProductStatusDto } from './dto/request/update-product-status.dto';
 import { BaseResponse } from '../../core/base/base.response';
 import { uploadToCloudinary } from '../../common/utils/cloudinary.util';
 import { RoleEnum } from 'src/common/enums/role.enum';
@@ -40,6 +41,8 @@ import { Roles } from 'src/core/decorators/roles.decorator';
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
+
+  // ─── ADMIN ROUTES (static trước, phải đứng TRƯỚC dynamic ':id') ──────────
 
   @Roles(RoleEnum.ADMIN)
   @Post()
@@ -58,14 +61,17 @@ export class ProductsController {
     return product.toResponse();
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Lấy danh sách sản phẩm' })
+  @Roles(RoleEnum.ADMIN)
+  @Get('admin/list')
+  @ApiOperation({ summary: 'Lấy danh sách tất cả sản phẩm (Dành cho Admin)' })
   @ApiResponse({ status: 200, type: BaseResponse<ProductResponseDto[]> })
-  async findAll(
+  async adminFindAll(
     @Query() filterDto: ProductFilterRequestDto,
   ): Promise<BaseResponse<ProductResponseDto[]>> {
-    const [products, totalElement] =
-      await this.productsService.findAll(filterDto);
+    const [products, totalElement] = await this.productsService.findAll(
+      filterDto,
+      true,
+    );
     const data = products.map((prod) => prod.toResponse());
     return new BaseResponse(
       200,
@@ -75,13 +81,27 @@ export class ProductsController {
     );
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Lấy chi tiết 1 sản phẩm' })
+  @Roles(RoleEnum.ADMIN)
+  @Patch('admin/:id/status')
+  @ApiOperation({ summary: 'Ẩn/Hiện sản phẩm (Dành cho Admin)' })
   @ApiResponse({ status: 200, type: ProductResponseDto })
-  async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() updateStatusDto: UpdateProductStatusDto,
   ): Promise<ProductResponseDto> {
-    const product = await this.productsService.findById(id);
+    const product = await this.productsService.updateStatus(
+      id,
+      updateStatusDto.isPublished,
+    );
+    return product.toResponse();
+  }
+
+  @Roles(RoleEnum.ADMIN)
+  @Get('admin/:id')
+  @ApiOperation({ summary: 'Lấy chi tiết 1 sản phẩm (Dành cho Admin)' })
+  @ApiResponse({ status: 200, type: ProductResponseDto })
+  async adminFindOne(@Param('id') id: string): Promise<ProductResponseDto> {
+    const product = await this.productsService.findById(id, true);
     return product.toResponse();
   }
 
@@ -92,7 +112,7 @@ export class ProductsController {
   @ApiOperation({ summary: 'Cập nhật sản phẩm' })
   @ApiResponse({ status: 200, type: ProductResponseDto })
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
     @UploadedFiles() files: Express.Multer.File[],
   ): Promise<ProductResponseDto> {
@@ -101,6 +121,35 @@ export class ProductsController {
       updateProductDto,
       files,
     );
+    return product.toResponse();
+  }
+
+  // ─── PUBLIC / USER ROUTES (dynamic ':id' phải đứng SAU static routes) ────
+
+  @Get()
+  @ApiOperation({ summary: 'Lấy danh sách sản phẩm (Dành cho User)' })
+  @ApiResponse({ status: 200, type: BaseResponse<ProductResponseDto[]> })
+  async findAll(
+    @Query() filterDto: ProductFilterRequestDto,
+  ): Promise<BaseResponse<ProductResponseDto[]>> {
+    const [products, totalElement] = await this.productsService.findAll(
+      filterDto,
+      false,
+    );
+    const data = products.map((prod) => prod.toResponse());
+    return new BaseResponse(
+      200,
+      'Lấy danh sách sản phẩm thành công',
+      data,
+      totalElement,
+    );
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Lấy chi tiết 1 sản phẩm (Dành cho User)' })
+  @ApiResponse({ status: 200, type: ProductResponseDto })
+  async findOne(@Param('id') id: string): Promise<ProductResponseDto> {
+    const product = await this.productsService.findById(id, false);
     return product.toResponse();
   }
 }

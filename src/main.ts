@@ -13,9 +13,9 @@ async function bootstrap() {
   // Global ValidationPipe
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
+      whitelist: true, // tác dụng : loại bỏ các trường không có trong dto
+      forbidNonWhitelisted: true, // tác dụng : báo lỗi nếu có trường không có trong dto
+      transform: true, // tác dụng : transform dữ liệu
     }),
   );
 
@@ -24,7 +24,10 @@ async function bootstrap() {
 
   // Global Filter for error responses
   app.useGlobalFilters(new HttpExceptionFilter());
-
+  app.enableCors({
+    origin: true, // Hoặc để true nếu muốn cho phép tất cả (chỉ dùng lúc dev)
+    credentials: true,
+  });
   // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('DATN UTC E-commerce API')
@@ -41,4 +44,3 @@ async function bootstrap() {
   );
 }
 bootstrap();
-

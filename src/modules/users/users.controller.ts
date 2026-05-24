@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Post, Body } from '@nestjs/common';
 import {
   ApiOperation,
   ApiResponse,
@@ -11,6 +11,7 @@ import { Roles } from '../../core/decorators/roles.decorator';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { UsersService } from './users.service';
 import { UserFilterRequestDto } from './dto/request/user-filter.request.dto';
+import { CreateUserDto } from './dto/request/create-user.dto';
 import { BaseResponse } from '../../core/base/base.response';
 import { UserResponseDto } from './dto/response/user.response.dto';
 
@@ -20,6 +21,21 @@ import { UserResponseDto } from './dto/response/user.response.dto';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Roles(RoleEnum.ADMIN)
+  @Post()
+  @ApiOperation({ summary: 'Tạo tài khoản người dùng (Admin)' })
+  @ApiResponse({ status: 201, type: BaseResponse<UserResponseDto> })
+  async create(
+    @Body() createUserDto: CreateUserDto,
+  ): Promise<BaseResponse<UserResponseDto>> {
+    const user = await this.usersService.create(createUserDto);
+    return new BaseResponse(
+      201,
+      'Tạo tài khoản thành công',
+      user.toResponse(),
+    );
+  }
 
   @Roles(RoleEnum.ADMIN)
   @Get()

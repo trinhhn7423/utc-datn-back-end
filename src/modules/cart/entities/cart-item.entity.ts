@@ -82,6 +82,7 @@ export class CartItemEntity {
       if (this.productDetail.product) {
         dto.productId = this.productDetail.product.id;
         dto.name = this.productDetail.product.name;
+        dto.isPublished = this.productDetail.product.isPublished;
 
         if (
           this.productDetail.product.images &&

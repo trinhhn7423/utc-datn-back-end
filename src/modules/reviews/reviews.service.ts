@@ -3,9 +3,11 @@ import { DataSource, FindOptionsWhere } from 'typeorm';
 import { CreateReviewDto } from './dto/request/create-review.dto';
 import { ReviewEntity } from './entities/review.entity';
 import { OrderEntity } from '../orders/entities/order.entity';
+import { OrderDetailEntity } from '../orders/entities/order-detail.entity';
 import { OrderStatus } from '../../common/enums/order.enum';
 import { ReviewFilterRequestDto } from './dto/request/review-filter.request.dto';
 import { ReviewRepository } from './repositories/review.repository';
+import { UnreviewedItemResponseDto } from './dto/response/unreviewed-item.response.dto';
 
 @Injectable()
 export class ReviewsService {
@@ -13,6 +15,53 @@ export class ReviewsService {
     private readonly dataSource: DataSource,
     private readonly reviewRepository: ReviewRepository,
   ) {}
+
+  async getUnreviewedItems(userId: string): Promise<UnreviewedItemResponseDto[]> {
+    const orderDetails = await this.dataSource
+      .getRepository(OrderDetailEntity)
+      .createQueryBuilder('orderDetail')
+      .innerJoinAndSelect('orderDetail.order', 'order')
+      .innerJoinAndSelect('orderDetail.productDetail', 'productDetail')
+      .innerJoinAndSelect('productDetail.product', 'product')
+      .leftJoinAndSelect('product.images', 'images')
+      .leftJoin(
+        ReviewEntity,
+        'review',
+        'review.orderId = order.id AND review.productId = productDetail.productId AND review.userId = :userId',
+        { userId },
+      )
+      .where('order.userId = :userId', { userId })
+      .andWhere('order.status = :status', { status: OrderStatus.COMPLETED })
+      .andWhere('review.id IS NULL')
+      .orderBy('order.createdAt', 'DESC')
+      .getMany();
+
+    return orderDetails.map((detail) => {
+      const dto = new UnreviewedItemResponseDto();
+      dto.orderId = detail.orderId;
+      dto.productId = detail.productDetail.productId;
+      dto.productName = detail.productDetail.product.name;
+
+      if (
+        detail.productDetail.product.images &&
+        detail.productDetail.product.images.length > 0
+      ) {
+        const thumbnail = detail.productDetail.product.images.find(
+          (img) => img.isThumbnail,
+        );
+        dto.productThumbnail = thumbnail
+          ? thumbnail.imageUrl
+          : detail.productDetail.product.images[0].imageUrl;
+      }
+
+      dto.color = detail.productDetail.color;
+      dto.size = detail.productDetail.size;
+      dto.priceAtPurchase = Number(detail.priceAtPurchase);
+      dto.quantity = detail.quantity;
+      dto.orderCreatedAt = detail.order.createdAt;
+      return dto;
+    });
+  }
 
   async createReview(
     userId: string,

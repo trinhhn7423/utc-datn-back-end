@@ -4,6 +4,7 @@ import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/request/create-review.dto';
 import { ReviewFilterRequestDto } from './dto/request/review-filter.request.dto';
 import { ReviewResponseDto } from './dto/response/review.response.dto';
+import { UnreviewedItemResponseDto } from './dto/response/unreviewed-item.response.dto';
 import { BaseResponse } from '../../core/base/base.response';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
@@ -18,6 +19,16 @@ import { CurrentUser } from '../../core/decorators/current-user.decorator';
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
+  @Roles(RoleEnum.USER)
+  @Get('unreviewed')
+  @ApiOperation({ summary: 'Lấy danh sách sản phẩm cần đánh giá (Chỉ USER)' })
+  @ApiResponse({ status: 200, type: [UnreviewedItemResponseDto] })
+  async getUnreviewedItems(
+    @CurrentUser('id') userId: string,
+  ): Promise<BaseResponse<UnreviewedItemResponseDto[]>> {
+    const data = await this.reviewsService.getUnreviewedItems(userId);
+    return new BaseResponse(200, 'Lấy danh sách sản phẩm cần đánh giá thành công', data);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách đánh giá có phân trang và lọc' })

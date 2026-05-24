@@ -9,6 +9,7 @@ import {
 import { RoleEntity } from './role.entity';
 import { UserResponseDto } from '../dto/response/user.response.dto';
 import { RegisterDto } from 'src/modules/auth/dto/request/register.dto';
+import { CreateUserDto } from '../dto/request/create-user.dto';
 import { UserAddressEntity } from '../../user-addresses/entities/user-address.entity';
 import { OneToMany } from 'typeorm';
 
@@ -42,7 +43,9 @@ export class UserEntity {
   @JoinColumn({ name: 'role_id' })
   role: RoleEntity;
 
-  @OneToMany(() => UserAddressEntity, (address) => address.user, { cascade: true })
+  @OneToMany(() => UserAddressEntity, (address) => address.user, {
+    cascade: true,
+  })
   addresses: UserAddressEntity[];
 
   static createUser(userData: RegisterDto, hashedPassword: string): UserEntity {
@@ -51,6 +54,16 @@ export class UserEntity {
     user.password = hashedPassword;
     user.fullName = userData.fullName;
     user.roleId = 2; // Default USER role id
+    return user;
+  }
+
+  static createByAdmin(dto: CreateUserDto, hashedPassword: string): UserEntity {
+    const user = new UserEntity();
+    user.email = dto.email;
+    user.password = hashedPassword;
+    user.fullName = dto.fullName;
+    user.roleId = dto.roleId;
+    user.avatarUrl = dto.avatarUrl || '';
     return user;
   }
 
@@ -68,7 +81,7 @@ export class UserEntity {
     response.createdAt = this.createdAt;
 
     if (this.addresses) {
-      response.addresses = this.addresses.map(addr => addr.toResponse());
+      response.addresses = this.addresses.map((addr) => addr.toResponse());
     }
     return response;
   }

@@ -1,6 +1,17 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod, PaymentStatus, OrderStatus } from '../../../../common/enums/order.enum';
 import { OrderDetailResponseDto } from './order-detail.response.dto';
+
+export class OrderUserDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  fullName: string;
+
+  @ApiProperty()
+  email: string;
+}
 
 export class ShippingAddressDto {
   @ApiProperty()
@@ -40,4 +51,7 @@ export class OrderResponseDto {
 
   @ApiProperty({ type: [OrderDetailResponseDto] })
   orderDetails?: OrderDetailResponseDto[];
+
+  @ApiPropertyOptional({ type: OrderUserDto })
+  user?: OrderUserDto;
 }

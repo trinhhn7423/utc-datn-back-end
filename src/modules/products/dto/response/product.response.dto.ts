@@ -19,6 +19,9 @@ export class ProductResponseDto {
   @ApiProperty({ example: 'Vietnam' })
   origin?: string;
 
+  @ApiProperty({ example: true })
+  isPublished: boolean;
+
   @ApiPropertyOptional({ type: () => CategoryResponseDto })
   category?: CategoryResponseDto;
 

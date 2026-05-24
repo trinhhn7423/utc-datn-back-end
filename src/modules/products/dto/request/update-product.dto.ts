@@ -1,27 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
-import { IsNotEmpty, IsString, IsNumber, IsOptional, ValidateNested, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsArray } from 'class-validator';
+import { Transform } from 'class-transformer';
 
-export class UpdateProductDetailDto {
-  @IsOptional()
-  @IsNumber()
-  @Transform(({ value }) => parseInt(value, 10))
+export interface ParsedDetailItem {
   id?: number;
-
-  @IsString()
-  @IsNotEmpty()
   color: string;
-
-  @IsString()
-  @IsNotEmpty()
   size: string;
-
-  @IsNumber()
-  @IsNotEmpty()
   price: number;
-
-  @IsNumber()
-  @IsNotEmpty()
   stock: number;
 }
 
@@ -47,35 +32,43 @@ export class UpdateProductDto {
   origin?: string;
 
   @ApiPropertyOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(({ value }) => (value !== undefined ? parseInt(String(value), 10) : undefined))
   @IsNumber()
   @IsOptional()
   categoryId?: number;
 
-  @ApiPropertyOptional({ description: 'JSON string of details array' })
+  @ApiPropertyOptional({ description: 'JSON string của mảng details' })
   @Transform(({ value }) => {
     try {
-      return typeof value === 'string' ? JSON.parse(value) : value;
-    } catch (e) {
+      const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      if (!Array.isArray(parsed)) return parsed;
+      return parsed.map((item: Record<string, unknown>) => ({
+        id: item['id'] !== undefined ? parseInt(String(item['id']), 10) : undefined,
+        color: String(item['color'] ?? ''),
+        size: String(item['size'] ?? ''),
+        price: parseFloat(String(item['price'] ?? 0)),
+        stock: parseInt(String(item['stock'] ?? 0), 10),
+      }));
+    } catch {
       return value;
     }
   })
   @IsArray()
   @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => UpdateProductDetailDto)
-  details?: UpdateProductDetailDto[];
+  details?: ParsedDetailItem[];
 
-  @ApiPropertyOptional({ description: 'JSON string of retained image IDs array' })
+  @ApiPropertyOptional({ description: 'JSON string của mảng retained image IDs' })
   @Transform(({ value }) => {
     try {
-      return typeof value === 'string' ? JSON.parse(value) : value;
-    } catch (e) {
+      const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      if (!Array.isArray(parsed)) return parsed;
+      return parsed.map((v) => Number(v));
+    } catch {
       return value;
     }
   })
   @IsArray()
-  @IsNumber({}, { each: true })
   @IsOptional()
   retained_image_ids?: number[];
 }
+

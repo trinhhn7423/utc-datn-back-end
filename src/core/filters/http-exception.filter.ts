@@ -56,19 +56,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = 'Thành công';
         break;
       case HttpStatus.BAD_REQUEST:
-        message = 'Yêu cầu không hợp lệ';
+        message = exceptionResponse.message || 'Yêu cầu không hợp lệ';
         break;
       case HttpStatus.UNAUTHORIZED:
-        message = 'Không có quyền truy cập';
+        message = exceptionResponse.message || 'Không có quyền truy cập';
         break;
       case HttpStatus.FORBIDDEN:
-        message = 'Bị từ chối truy cập';
+        message = exceptionResponse.message || 'Bị từ chối truy cập';
         break;
       case HttpStatus.NOT_FOUND:
-        message = 'Không tìm thấy tài nguyên';
+        message = exceptionResponse.message || 'Không tìm thấy tài nguyên';
         break;
       case HttpStatus.INTERNAL_SERVER_ERROR:
-        message = 'Lỗi hệ thống';
+        message = exceptionResponse.message || 'Lỗi hệ thống';
         break;
       default:
         message = exceptionResponse.message || 'Có lỗi xảy ra';

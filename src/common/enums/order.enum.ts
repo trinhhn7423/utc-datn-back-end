@@ -1,6 +1,6 @@
 export enum PaymentMethod {
   COD = 'COD',
-  VNPAY = 'VNPAY',
+  SEPAY = 'SEPAY',
 }
 
 export enum PaymentStatus {

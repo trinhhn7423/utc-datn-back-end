@@ -96,3 +96,7 @@ Thumbs.db
 
 # Testing
 /coverage
+
+# Firebase Service Account (KHÔNG BAO GIỜ commit file này lên Git!)
+src/common/config/firebase/*.json
+firebase-service-account*.json

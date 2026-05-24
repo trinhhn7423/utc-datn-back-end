@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import {
   ApiOperation,
   ApiResponse,
@@ -21,9 +22,13 @@ import { OrderFilterRequestDto } from './dto/request/order-filter.request.dto';
 import { BaseResponse } from '../../core/base/base.response';
 import { OrderResponseDto } from './dto/response/order.response.dto';
 import { CreateOrderDto } from './dto/request/create-order.dto';
+import { CreateOrderFromCartDto } from './dto/request/create-order-from-cart.dto';
+import { PreOrderRequestDto } from './dto/request/pre-order.request.dto';
+import { PreOrderResponseDto } from './dto/response/pre-order.response.dto';
 import { OrderStatus, PaymentStatus } from '../../common/enums/order.enum';
 import { Roles } from 'src/core/decorators/roles.decorator';
 import { RoleEnum } from 'src/common/enums/role.enum';
+import { UserEntity } from '../users/entities/user.entity';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -37,7 +42,11 @@ export class OrdersController {
   @ApiResponse({ status: 200, type: BaseResponse<OrderResponseDto[]> })
   async findAll(
     @Query() filterDto: OrderFilterRequestDto,
+    @CurrentUser() user: UserEntity,
   ): Promise<BaseResponse<OrderResponseDto[]>> {
+    if (user.role?.name !== RoleEnum.ADMIN) {
+      filterDto.userId = user.id;
+    }
     const [orders, totalElement] = await this.ordersService.findAll(filterDto);
     const data = orders.map((order) => order.toResponse());
     return new BaseResponse(
@@ -52,27 +61,56 @@ export class OrdersController {
   @ApiOperation({ summary: 'Tạo đơn hàng mới' })
   @ApiResponse({ status: 201, type: OrderResponseDto })
   async create(
-    @Query('userId') userId: string,
+    @CurrentUser('id') userId: string,
     @Body() createOrderDto: CreateOrderDto,
   ): Promise<OrderResponseDto> {
     const order = await this.ordersService.createOrder(userId, createOrderDto);
     return order.toResponse();
   }
 
+  @Post('cart')
+  @ApiOperation({ summary: 'Tạo đơn hàng từ giỏ hàng' })
+  @ApiResponse({ status: 201, type: OrderResponseDto })
+  async createFromCart(
+    @CurrentUser('id') userId: string,
+    @Body() createOrderFromCartDto: CreateOrderFromCartDto,
+  ): Promise<OrderResponseDto> {
+    const order = await this.ordersService.createOrderFromCart(
+      userId,
+      createOrderFromCartDto,
+    );
+    return order.toResponse();
+  }
+
+  @Post('pre-order')
+  @ApiOperation({ summary: 'Xem trước thông tin đơn hàng (từ giỏ hàng hoặc mua ngay)' })
+  @ApiResponse({ status: 200, type: BaseResponse<PreOrderResponseDto> })
+  async preOrder(
+    @CurrentUser('id') userId: string,
+    @Body() preOrderRequestDto: PreOrderRequestDto,
+  ): Promise<BaseResponse<PreOrderResponseDto>> {
+    const data = await this.ordersService.preOrder(userId, preOrderRequestDto);
+    return new BaseResponse(
+      200,
+      'Lấy thông tin pre-order thành công',
+      data,
+    );
+  }
+
   @Roles(RoleEnum.ADMIN)
   @Put(':id/status')
   @ApiOperation({ summary: 'Cập nhật trạng thái đơn hàng' })
-  @ApiResponse({ status: 200, type: OrderResponseDto })
+  @ApiResponse({ status: 200, type: BaseResponse<OrderResponseDto> })
   async updateStatus(
     @Param('id') id: string,
     @Body('status') status: OrderStatus,
     @Body('paymentStatus') paymentStatus: PaymentStatus,
-  ): Promise<OrderResponseDto> {
+  ): Promise<BaseResponse<OrderResponseDto>> {
     const order = await this.ordersService.updateOrderStatus(
       id,
       status,
       paymentStatus,
     );
-    return order.toResponse();
+    return new BaseResponse(200, 'Cập nhật trạng thái đơn hàng thành công', order.toResponse());
   }
 }

@@ -43,6 +43,18 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Post('admin-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đăng nhập hệ thống (Dành cho Admin)' })
+  @ApiResponse({ status: 200, type: AuthResponseDto })
+  @ApiResponse({
+    status: 401,
+    description: 'Thông tin đăng nhập không chính xác hoặc không có quyền',
+  })
+  async adminLogin(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
+    return this.authService.adminLogin(loginDto);
+  }
+
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Làm mới Access Token' })

@@ -1,6 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsString, IsNumber, IsOptional, ValidateNested, IsArray } from 'class-validator';
+import { plainToInstance, Transform } from 'class-transformer';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsOptional,
+  ValidateNested,
+  IsArray,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateProductDetailDto {
@@ -50,17 +57,18 @@ export class CreateProductDto {
 
   @ApiProperty({
     description: 'JSON string of details array',
-    example: '[{"color":"Red","size":"XL","price":150000,"stock":100}]'
+    example: '[{"color":"Red","size":"XL","price":150000,"stock":100}]',
   })
   @Transform(({ value }) => {
     try {
-      return typeof value === 'string' ? JSON.parse(value) : value;
+      const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      return plainToInstance(CreateProductDetailDto, parsed);
     } catch (e) {
       return value;
     }
   })
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CreateProductDetailDto)
+  @Type(() => CreateProductDetailDto) // Giữ nguyên dòng này
   details: CreateProductDetailDto[];
 }

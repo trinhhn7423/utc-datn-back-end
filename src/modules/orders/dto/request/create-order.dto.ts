@@ -11,10 +11,6 @@ export class OrderItemDto {
   @Min(1)
   @IsNotEmpty()
   quantity: number;
-
-  @IsOptional()
-  @IsInt()
-  cartId?: number;
 }
 
 export class CreateOrderDto {

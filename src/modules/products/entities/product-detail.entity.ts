@@ -8,7 +8,6 @@ import {
 import { ProductDetailResponseDto } from '../dto/response/product-detail.response.dto';
 import { ProductEntity } from './product.entity';
 import { CreateProductDetailDto } from '../dto/request/create-product.dto';
-import { UpdateProductDetailDto } from '../dto/request/update-product.dto';
 
 @Entity('product_details')
 export class ProductDetailEntity {
@@ -45,7 +44,7 @@ export class ProductDetailEntity {
     return detail;
   }
 
-  update(dto: UpdateProductDetailDto): void {
+  update(dto: Partial<ProductDetailEntity>): void {
     if (dto.color !== undefined) this.color = dto.color;
     if (dto.size !== undefined) this.size = dto.size;
     if (dto.price !== undefined) this.price = dto.price;

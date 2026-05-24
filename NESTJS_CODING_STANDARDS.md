@@ -49,3 +49,4 @@ Bạn là một Expert Backend Developer chuyên về NestJS, TypeScript và ki�
 ### 8. Authentication & Authorization
 - **BẮT BUỘC** khai báo `@ApiBearerAuth()` và bảo vệ API bằng `@UseGuards(JwtAuthGuard, RolesGuard)` ở tầng Controller cho toàn bộ dự án (ngoại trừ module Auth hoặc các API public có chủ đích).
 - Có thể dùng kèm decorator `@Roles(RoleEnum.ADMIN, RoleEnum.USER)` để phân quyền linh hoạt theo từng Controller hoặc Endpoint.
+- **LẤY THÔNG TIN USER**: Sử dụng decorator `@CurrentUser()` (ví dụ: `@CurrentUser('id') userId: string` hoặc `@CurrentUser() user: UserEntity`) ở tham số của Controller để lấy thông tin user đang đăng nhập từ JWT Token. **TUYỆT ĐỐI KHÔNG** yêu cầu Frontend truyền `userId` qua `@Query` hoặc `@Body`.

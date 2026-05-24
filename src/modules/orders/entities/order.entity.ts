@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, On
 import { UserEntity } from '../../users/entities/user.entity';
 import { PaymentMethod, PaymentStatus, OrderStatus } from '../../../common/enums/order.enum';
 import { OrderDetailEntity } from './order-detail.entity';
-import { OrderResponseDto } from '../dto/response/order.response.dto';
+import { OrderResponseDto, OrderUserDto } from '../dto/response/order.response.dto';
 
 export interface ShippingAddress {
   name: string;
@@ -75,6 +75,15 @@ export class OrderEntity {
     if (this.orderDetails) {
       dto.orderDetails = this.orderDetails.map(detail => detail.toResponse());
     }
+
+    if (this.user) {
+      const orderUser = new OrderUserDto();
+      orderUser.id = this.user.id;
+      orderUser.fullName = this.user.fullName;
+      orderUser.email = this.user.email;
+      dto.user = orderUser;
+    }
+
     return dto;
   }
 }

@@ -28,6 +28,7 @@ import { AddToCartDto } from './dto/request/add-to-cart.dto';
 import { UpdateCartDto } from './dto/request/update-cart.dto';
 import { RemoveMultipleCartDto } from './dto/request/remove-multiple-cart.dto';
 import { CartResponseDto } from './dto/response/cart.response.dto';
+import { CartCountResponseDto } from './dto/response/cart-count.response.dto';
 import { BaseResponse } from '../../core/base/base.response';
 
 @ApiTags('Cart')
@@ -75,21 +76,32 @@ export class CartController {
     return new BaseResponse(200, 'Xóa sản phẩm khỏi giỏ hàng thành công', null);
   }
 
-  @Post('remove-multiple')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Xóa nhiều sản phẩm khỏi giỏ hàng (sau khi đặt hàng)',
-  })
-  @ApiResponse({ status: 200, description: 'Xóa thành công' })
-  async removeMultiple(
+  // @Post('remove-multiple')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({
+  //   summary: 'Xóa nhiều sản phẩm khỏi giỏ hàng (sau khi đặt hàng)',
+  // })
+  // @ApiResponse({ status: 200, description: 'Xóa thành công' })
+  // async removeMultiple(
+  //   @CurrentUser('id') userId: string,
+  //   @Body() removeMultipleCartDto: RemoveMultipleCartDto,
+  // ): Promise<BaseResponse<null>> {
+  //   await this.cartService.removeMultiple(
+  //     userId,
+  //     removeMultipleCartDto.cartItemIds,
+  //   );
+  //   return new BaseResponse(200, 'Xóa các sản phẩm thành công', null);
+  // }
+
+  @Roles(RoleEnum.USER)
+  @Get('count')
+  @ApiOperation({ summary: 'Lấy số lượng sản phẩm trong giỏ hàng' })
+  @ApiResponse({ status: 200, type: BaseResponse<CartCountResponseDto> })
+  async getCartCount(
     @CurrentUser('id') userId: string,
-    @Body() removeMultipleCartDto: RemoveMultipleCartDto,
-  ): Promise<BaseResponse<null>> {
-    await this.cartService.removeMultiple(
-      userId,
-      removeMultipleCartDto.cartItemIds,
-    );
-    return new BaseResponse(200, 'Xóa các sản phẩm thành công', null);
+  ): Promise<BaseResponse<CartCountResponseDto>> {
+    const data = await this.cartService.getCartCount(userId);
+    return new BaseResponse(200, 'Lấy số lượng sản phẩm trong giỏ hàng thành công', data);
   }
 
   @Roles(RoleEnum.USER)

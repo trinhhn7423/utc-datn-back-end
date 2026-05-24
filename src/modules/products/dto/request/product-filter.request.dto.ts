@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+import { IsNumber, IsOptional, IsString, IsBoolean } from 'class-validator';
 import { BasePaginationRequestDto } from '../../../../core/base/base.pagination.request';
 
 export class ProductFilterRequestDto extends BasePaginationRequestDto {
@@ -24,4 +24,15 @@ export class ProductFilterRequestDto extends BasePaginationRequestDto {
   @IsString()
   @IsOptional()
   origin?: string;
+
+  @ApiPropertyOptional({
+    description: 'Lọc theo trạng thái công khai (true/false)',
+  })
+  @Transform(({ value }) => {
+    console.log('value', value);
+    return value === 'true' || value === true;
+  })
+  @IsBoolean()
+  @IsOptional()
+  isPublished?: boolean;
 }

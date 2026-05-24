@@ -11,6 +11,7 @@ export interface Response<T> {
   statusCode: number;
   message: string;
   data: T;
+  totalElement?: number;
 }
 
 @Injectable()
@@ -34,6 +35,7 @@ export class TransformInterceptor<T>
           statusCode: statusCode,
           message: message,
           data: responseData,
+          ...(data?.totalElement !== undefined && { totalElement: data.totalElement }),
         };
       }),
     );

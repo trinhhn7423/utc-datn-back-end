@@ -30,6 +30,9 @@ export class CartItemResponseDto {
 
   @ApiProperty()
   quantity: number;
+
+  @ApiProperty({ example: true })
+  isPublished: boolean;
 }
 
 export class CartResponseDto {

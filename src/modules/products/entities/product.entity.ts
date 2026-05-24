@@ -26,6 +26,9 @@ export class ProductEntity {
   @Column({ name: 'category_id' })
   categoryId: number;
 
+  @Column({ name: 'is_published', default: true })
+  isPublished: boolean;
+
   @ManyToOne(() => CategoryEntity, (category) => category.products)
   @JoinColumn({ name: 'category_id' })
   category: CategoryEntity;
@@ -46,12 +49,12 @@ export class ProductEntity {
     return product;
   }
 
-  update(dto: UpdateProductDto): void {
+  update(dto: Partial<ProductEntity> | any): void {
     if (dto.name !== undefined) this.name = dto.name;
     if (dto.description !== undefined) this.description = dto.description;
     if (dto.brand !== undefined) this.brand = dto.brand;
     if (dto.origin !== undefined) this.origin = dto.origin;
-    if (dto.categoryId !== undefined) this.categoryId = dto.categoryId;
+    if (dto.categoryId !== undefined) this.categoryId = Number(dto.categoryId);
   }
 
   toResponse(): ProductResponseDto {
@@ -61,6 +64,7 @@ export class ProductEntity {
     response.description = this.description;
     response.brand = this.brand;
     response.origin = this.origin;
+    response.isPublished = this.isPublished;
 
     if (this.category) {
       response.category = this.category.toResponse();
