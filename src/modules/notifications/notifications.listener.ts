@@ -37,10 +37,11 @@ export class NotificationsListener {
     private readonly sseService: SseService,
     private readonly fcmService: FcmService,
   ) {}
-
   @OnEvent('order.created', { async: true })
   async handleOrderCreated(payload: OrderCreatedEvent): Promise<void> {
     try {
+      // log xử lý thông báo
+      this.logger.log('Handling order.created event', payload);
       const title = 'Đơn hàng mới';
       const content = `Có đơn hàng mới #${payload.orderId.slice(0, 8).toUpperCase()} trị giá ${Number(payload.totalAmount).toLocaleString('vi-VN')}đ vừa được đặt.`;
 
@@ -55,7 +56,10 @@ export class NotificationsListener {
       });
 
       // Lấy unread count của Admin
-      const unreadCount = await this.notificationsService.getUnreadCount('ADMIN', RoleEnum.ADMIN);
+      const unreadCount = await this.notificationsService.getUnreadCount(
+        'ADMIN',
+        RoleEnum.ADMIN,
+      );
 
       // Push SSE đến tất cả Admin đang online
       this.sseService.broadcastToAllAdmins({
@@ -75,7 +79,9 @@ export class NotificationsListener {
   }
 
   @OnEvent('order.status_updated', { async: true })
-  async handleOrderStatusUpdated(payload: OrderStatusUpdatedEvent): Promise<void> {
+  async handleOrderStatusUpdated(
+    payload: OrderStatusUpdatedEvent,
+  ): Promise<void> {
     try {
       const statusLabels: Record<OrderStatus, string> = {
         [OrderStatus.CONFIRMED]: 'đã được xác nhận',
@@ -105,12 +111,17 @@ export class NotificationsListener {
       );
 
       // Gửi FCM đến thiết bị mobile của user
-      await this.fcmService.sendPushNotification(payload.userId, title, content, {
-        notificationId: notification.id,
-        orderId: payload.orderId,
-        type: NotificationType.ORDER_STATUS_UPDATED,
-        unreadCount: String(unreadCount), // Flutter đọc từ message.data['unreadCount'] để cập nhật badge
-      });
+      await this.fcmService.sendPushNotification(
+        payload.userId,
+        title,
+        content,
+        {
+          notificationId: notification.id,
+          orderId: payload.orderId,
+          type: NotificationType.ORDER_STATUS_UPDATED,
+          unreadCount: String(unreadCount),
+        },
+      );
     } catch (error) {
       this.logger.error('Error handling order.status_updated event', error);
     }
@@ -131,7 +142,10 @@ export class NotificationsListener {
         referenceId: String(payload.productDetailId),
       });
 
-      const unreadCount = await this.notificationsService.getUnreadCount('ADMIN', RoleEnum.ADMIN);
+      const unreadCount = await this.notificationsService.getUnreadCount(
+        'ADMIN',
+        RoleEnum.ADMIN,
+      );
 
       this.sseService.broadcastToAllAdmins({
         type: 'low_stock.warning',

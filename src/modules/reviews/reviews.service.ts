@@ -8,6 +8,9 @@ import { OrderStatus } from '../../common/enums/order.enum';
 import { ReviewFilterRequestDto } from './dto/request/review-filter.request.dto';
 import { ReviewRepository } from './repositories/review.repository';
 import { UnreviewedItemResponseDto } from './dto/response/unreviewed-item.response.dto';
+import { ProductEntity } from '../products/entities/product.entity';
+import { ProductImageEntity } from '../products/entities/product-image.entity';
+import { ProductDetailEntity } from '../products/entities/product-detail.entity';
 
 @Injectable()
 export class ReviewsService {
@@ -61,6 +64,53 @@ export class ReviewsService {
       dto.orderCreatedAt = detail.order.createdAt;
       return dto;
     });
+  }
+
+  async getMyReviews(userId: string): Promise<any[]> {
+    const reviews = await this.dataSource.manager
+      .createQueryBuilder(ReviewEntity, 'review')
+      .innerJoin(ProductEntity, 'product', 'product.id = review.productId')
+      .leftJoin(
+        ProductImageEntity,
+        'image',
+        'image.productId = product.id AND image.isThumbnail = true',
+      )
+      .innerJoin(
+        OrderDetailEntity,
+        'orderDetail',
+        'orderDetail.orderId = review.orderId',
+      )
+      .innerJoin(
+        ProductDetailEntity,
+        'productDetail',
+        'productDetail.id = orderDetail.productDetailId AND productDetail.productId = review.productId',
+      )
+      .where('review.userId = :userId', { userId })
+      .orderBy('review.createdAt', 'DESC')
+      .select([
+        'review.id as id',
+        'review.rating as rating',
+        'review.comment as comment',
+        'review.createdAt as createdAt',
+        'product.id as productId',
+        'product.name as productName',
+        'image.imageUrl as productThumbnail',
+        'productDetail.color as color',
+        'productDetail.size as size',
+      ])
+      .getRawMany();
+
+    return reviews.map((row) => ({
+      id: row.id,
+      rating: Number(row.rating),
+      comment: row.comment || '',
+      createdAt: row.createdAt,
+      productId: row.productId,
+      productName: row.productName,
+      productThumbnail: row.productThumbnail || null,
+      color: row.color || '',
+      size: row.size || '',
+    }));
   }
 
   async createReview(

@@ -59,6 +59,11 @@ export class ProductsService {
       where.origin = Like(`%${origin}%`);
     }
 
+    const order: any = {};
+    if (isAdmin) {
+      order.createdAt = 'DESC';
+    }
+
     return this.productRepository.findAndCount({
       where,
       relations: {
@@ -66,6 +71,7 @@ export class ProductsService {
         details: true,
         images: true,
       },
+      order,
       skip,
       take: size,
     });

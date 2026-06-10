@@ -164,7 +164,7 @@ export class AuthService {
         { sub: user.id, role: payload.role },
         {
           secret: this.configService.get<string>(EnvVars.JWT_ACCESS_SECRET),
-          expiresIn: '15m',
+          expiresIn: '365d',
         },
       );
 
@@ -185,14 +185,14 @@ export class AuthService {
         { sub: userId, role },
         {
           secret: this.configService.get<string>(EnvVars.JWT_ACCESS_SECRET),
-          expiresIn: '15m',
+          expiresIn: '365d',
         },
       ),
       this.jwtService.signAsync(
         { sub: userId, role },
         {
           secret: this.configService.get<string>(EnvVars.JWT_REFRESH_SECRET),
-          expiresIn: '7d',
+          expiresIn: '365d',
         },
       ),
     ]);

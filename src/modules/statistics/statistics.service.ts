@@ -13,6 +13,11 @@ import { LowStockResponseDto } from './dto/response/low-stock.response.dto';
 import { TopCustomerResponseDto } from './dto/response/top-customer.response.dto';
 import { UserStatisticsResponseDto } from './dto/response/user-statistics.response.dto';
 import { ProductDetailEntity } from '../products/entities/product-detail.entity';
+import { GetSalesReportRequestDto, SalesReportGroupBy } from './dto/request/get-sales-report.request.dto';
+import { SalesReportItemDto } from './dto/response/sales-report.response.dto';
+import { CategoryDistributionDto } from './dto/response/category-distribution.response.dto';
+import { CustomerLoyaltyDto } from './dto/response/customer-loyalty.response.dto';
+import * as ExcelJS from 'exceljs';
 
 @Injectable()
 export class StatisticsService {
@@ -310,5 +315,156 @@ export class StatisticsService {
       ordersPending,
       ordersShipping,
     };
+  }
+
+  // ─── PHASE 1: NEW ANALYTICS METHODS ────────────────────────────────────────
+
+  async getSalesReport(dto: GetSalesReportRequestDto): Promise<SalesReportItemDto[]> {
+    const startDate = dayjs(dto.startDate).startOf('day').toDate();
+    const endDate = dayjs(dto.endDate).endOf('day').toDate();
+
+    // Auto-detect groupBy based on date range
+    const diffDays = dayjs(dto.endDate).diff(dayjs(dto.startDate), 'day');
+    let groupBy = dto.groupBy;
+    if (!groupBy) {
+      if (diffDays <= 31) groupBy = SalesReportGroupBy.DAY;
+      else if (diffDays <= 90) groupBy = SalesReportGroupBy.WEEK;
+      else groupBy = SalesReportGroupBy.MONTH;
+    }
+
+    let groupByFormat: string;
+    switch (groupBy) {
+      case SalesReportGroupBy.DAY:
+        groupByFormat = "DATE_FORMAT(o.createdAt, '%d/%m')"; break;
+      case SalesReportGroupBy.WEEK:
+        groupByFormat = "CONCAT('Tuần ', WEEK(o.createdAt, 1), '/', YEAR(o.createdAt))"; break;
+      case SalesReportGroupBy.MONTH:
+      default:
+        groupByFormat = "DATE_FORMAT(o.createdAt, '%m/%Y')"; break;
+    }
+
+    const results = await this.dataSource
+      .createQueryBuilder(OrderEntity, 'o')
+      .select(groupByFormat, 'label')
+      .addSelect('SUM(CASE WHEN o.status = :completed THEN o.totalAmount ELSE 0 END)', 'revenue')
+      .addSelect('COUNT(o.id)', 'orderCount')
+      .where('o.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
+      .setParameter('completed', OrderStatus.COMPLETED)
+      .groupBy('label')
+      .orderBy('MIN(o.createdAt)', 'ASC')
+      .getRawMany();
+
+    return results.map((row) => ({
+      label: row.label,
+      revenue: Number(row.revenue || 0),
+      orderCount: Number(row.orderCount || 0),
+    }));
+  }
+
+  async getCategoryDistribution(): Promise<CategoryDistributionDto[]> {
+    const results = await this.dataSource.manager
+      .createQueryBuilder()
+      .select('c.id', 'categoryId')
+      .addSelect('MAX(c.name)', 'categoryName')
+      .addSelect('SUM(od.quantity * od.price_at_purchase)', 'revenue')
+      .from('orders', 'o')
+      .innerJoin('order_details', 'od', 'od.order_id = o.id')
+      .innerJoin('product_details', 'pd', 'pd.id = od.product_detail_id')
+      .innerJoin('products', 'p', 'p.id = pd.product_id')
+      .innerJoin('categories', 'c', 'c.id = p.category_id')
+      .where('o.status = :status', { status: OrderStatus.COMPLETED })
+      .groupBy('c.id')
+      .orderBy('revenue', 'DESC')
+      .getRawMany();
+
+    const totalRevenue = results.reduce((sum, r) => sum + Number(r.revenue || 0), 0);
+
+    return results.map((row) => ({
+      categoryId: Number(row.categoryId),
+      categoryName: row.categoryName,
+      revenue: Number(row.revenue || 0),
+      percentage:
+        totalRevenue > 0
+          ? Math.round((Number(row.revenue || 0) / totalRevenue) * 10000) / 100
+          : 0,
+    }));
+  }
+
+  async getCustomerLoyalty(): Promise<CustomerLoyaltyDto> {
+    // New customers: exactly 1 completed order
+    // Returning customers: >= 2 completed orders
+    const results = await this.dataSource.manager
+      .createQueryBuilder()
+      .select('o.user_id', 'userId')
+      .addSelect('COUNT(o.id)', 'orderCount')
+      .from('orders', 'o')
+      .where('o.status = :status', { status: OrderStatus.COMPLETED })
+      .groupBy('o.user_id')
+      .getRawMany();
+
+    let newCustomersCount = 0;
+    let returningCustomersCount = 0;
+
+    for (const row of results) {
+      if (Number(row.orderCount) === 1) newCustomersCount++;
+      else if (Number(row.orderCount) >= 2) returningCustomersCount++;
+    }
+
+    const total = newCustomersCount + returningCustomersCount;
+    const returningRate =
+      total > 0 ? Math.round((returningCustomersCount / total) * 10000) / 100 : 0;
+
+    return { newCustomersCount, returningCustomersCount, returningRate };
+  }
+
+  async exportSalesReportExcel(startDate: string, endDate: string): Promise<Buffer> {
+    const data = await this.getSalesReport({ startDate, endDate });
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'TH-Store Admin';
+    workbook.created = new Date();
+
+    const sheet = workbook.addWorksheet('Báo cáo doanh số');
+
+    // Header row style
+    sheet.columns = [
+      { header: 'Thời gian', key: 'label', width: 20 },
+      { header: 'Doanh thu (VND)', key: 'revenue', width: 25 },
+      { header: 'Số đơn hàng', key: 'orderCount', width: 18 },
+    ];
+
+    const headerRow = sheet.getRow(1);
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1677FF' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
+    headerRow.height = 28;
+
+    // Data rows
+    data.forEach((item) => {
+      const row = sheet.addRow({
+        label: item.label,
+        revenue: item.revenue,
+        orderCount: item.orderCount,
+      });
+      // Format revenue cell as number
+      row.getCell('revenue').numFmt = '#,##0';
+      row.getCell('orderCount').alignment = { horizontal: 'center' };
+    });
+
+    // Total row
+    const totalRevenue = data.reduce((sum, r) => sum + r.revenue, 0);
+    const totalOrders = data.reduce((sum, r) => sum + r.orderCount, 0);
+    const totalRow = sheet.addRow({ label: 'TỔNG CỘNG', revenue: totalRevenue, orderCount: totalOrders });
+    totalRow.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F7FF' } };
+    });
+    totalRow.getCell('revenue').numFmt = '#,##0';
+    totalRow.getCell('orderCount').alignment = { horizontal: 'center' };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }

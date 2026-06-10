@@ -10,6 +10,7 @@ import { map } from 'rxjs/operators';
 export interface Response<T> {
   statusCode: number;
   message: string;
+  success: boolean;
   data: T;
   totalElement?: number;
 }
@@ -34,6 +35,7 @@ export class TransformInterceptor<T>
         return {
           statusCode: statusCode,
           message: message,
+          success: true,
           data: responseData,
           ...(data?.totalElement !== undefined && { totalElement: data.totalElement }),
         };

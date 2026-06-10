@@ -80,6 +80,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     response.status(status).json({
       statusCode: status,
       message: Array.isArray(errorDetails) ? errorDetails[0] : message,
+      success: false,
       data: Array.isArray(errorDetails) ? errorDetails : null,
     });
   }

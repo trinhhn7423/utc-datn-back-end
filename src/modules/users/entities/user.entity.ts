@@ -33,6 +33,9 @@ export class UserEntity {
   @Column({ name: 'role_id' })
   roleId: number;
 
+  @Column({ name: 'views_count', default: 0 })
+  viewsCount: number;
+
   @Column({ name: 'hashed_refresh_token', nullable: true, select: false })
   hashedRefreshToken: string;
 
@@ -79,6 +82,7 @@ export class UserEntity {
     response.roleId = this.roleId;
     response.avatarUrl = this.avatarUrl;
     response.createdAt = this.createdAt;
+    response.viewsCount = this.viewsCount;
 
     if (this.addresses) {
       response.addresses = this.addresses.map((addr) => addr.toResponse());

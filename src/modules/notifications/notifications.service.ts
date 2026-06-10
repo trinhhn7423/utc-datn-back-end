@@ -37,8 +37,6 @@ export class NotificationsService {
     page: number = 1,
     size: number = 10,
   ): Promise<[NotificationResponseDto[], number]> {
-    console.log('recipientId', recipientId);
-
     const [entities, total] = await this.notificationRepository.findAndCount({
       where: { recipientId, recipientRole: role },
       order: { createdAt: 'DESC' },

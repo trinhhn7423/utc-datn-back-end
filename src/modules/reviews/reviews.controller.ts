@@ -30,6 +30,17 @@ export class ReviewsController {
     return new BaseResponse(200, 'Lấy danh sách sản phẩm cần đánh giá thành công', data);
   }
 
+  @Roles(RoleEnum.USER)
+  @Get('me')
+  @ApiOperation({ summary: 'Lấy danh sách đánh giá của tôi (Chỉ USER)' })
+  @ApiResponse({ status: 200 })
+  async getMyReviews(
+    @CurrentUser('id') userId: string,
+  ): Promise<BaseResponse<any[]>> {
+    const data = await this.reviewsService.getMyReviews(userId);
+    return new BaseResponse(200, 'Lấy danh sách đánh giá của tôi thành công', data);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách đánh giá có phân trang và lọc' })
   @ApiResponse({ status: 200, type: BaseResponse<ReviewResponseDto[]> })

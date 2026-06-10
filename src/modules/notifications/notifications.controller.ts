@@ -9,6 +9,7 @@ import {
   Sse,
   Header,
   OnApplicationShutdown,
+  MessageEvent,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -16,7 +17,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Observable } from 'rxjs';
+import { Observable, interval, map, merge } from 'rxjs';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import { Roles } from '../../core/decorators/roles.decorator';
@@ -40,6 +41,21 @@ export class NotificationsController implements OnApplicationShutdown {
     private readonly sseService: SseService,
   ) {}
 
+  @Get('mock')
+  mock() {
+    return this.sseService.broadcastToAllAdmins({
+      type: 'order.created',
+      data: {
+        notificationId: 'id',
+        orderId: 'orderId',
+        title: 'title',
+        content: 'content',
+        unreadCount: 1,
+        createdAt: new Date(),
+      },
+    });
+  }
+
   @Sse('stream')
   @Header('Cache-Control', 'no-cache')
   @Header('X-Accel-Buffering', 'no')
@@ -52,12 +68,17 @@ export class NotificationsController implements OnApplicationShutdown {
   ): Observable<MessageEvent> {
     const subject = this.sseService.addConnection(adminId);
 
-    // Khi client ngắt kết nối, dọn dẹp stream
+    // Khi client ngắt kết nối, dọn dẹp stream này cụ thể
     req.on('close', () => {
-      this.sseService.removeConnection(adminId);
+      this.sseService.removeConnection(adminId, subject);
     });
 
-    return subject.asObservable();
+    // Phát tin nhắn ping định kỳ mỗi 30 giây để duy trì kết nối (keep-alive)
+    const ping$ = interval(6000).pipe(
+      map(() => ({ type: 'ping', data: 'heartbeat' }) as MessageEvent),
+    );
+
+    return merge(subject.asObservable(), ping$);
   }
 
   @Get()
@@ -68,7 +89,7 @@ export class NotificationsController implements OnApplicationShutdown {
     @Query() dto: GetNotificationsRequestDto,
   ): Promise<BaseResponse<NotificationResponseDto[]>> {
     const [data, total] = await this.notificationsService.getNotifications(
-      adminId,
+      'ADMIN',
       RoleEnum.ADMIN,
       dto.page,
       dto.size,
@@ -87,7 +108,7 @@ export class NotificationsController implements OnApplicationShutdown {
     @CurrentUser('id') adminId: string,
   ): Promise<BaseResponse<{ count: number }>> {
     const count = await this.notificationsService.getUnreadCount(
-      adminId,
+      'ADMIN',
       RoleEnum.ADMIN,
     );
     return new BaseResponse(200, 'OK', { count });
@@ -99,7 +120,7 @@ export class NotificationsController implements OnApplicationShutdown {
     @Param('id') id: string,
     @CurrentUser('id') adminId: string,
   ): Promise<BaseResponse<null>> {
-    await this.notificationsService.markAsRead(id, adminId);
+    await this.notificationsService.markAsRead(id, 'ADMIN');
     return new BaseResponse(200, 'Đã đánh dấu đã đọc', null);
   }
 
@@ -108,7 +129,7 @@ export class NotificationsController implements OnApplicationShutdown {
   async markAllAsRead(
     @CurrentUser('id') adminId: string,
   ): Promise<BaseResponse<null>> {
-    await this.notificationsService.markAllAsRead(adminId, RoleEnum.ADMIN);
+    await this.notificationsService.markAllAsRead('ADMIN', RoleEnum.ADMIN);
     return new BaseResponse(200, 'Đã đánh dấu tất cả là đã đọc', null);
   }
 

@@ -22,6 +22,12 @@ export class ProductResponseDto {
   @ApiProperty({ example: true })
   isPublished: boolean;
 
+  @ApiProperty({ example: '2026-05-31T06:59:12.000Z' })
+  createdAt: Date;
+
+  @ApiProperty({ example: '2026-05-31T06:59:12.000Z' })
+  updatedAt: Date;
+
   @ApiPropertyOptional({ type: () => CategoryResponseDto })
   category?: CategoryResponseDto;
 

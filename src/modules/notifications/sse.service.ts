@@ -8,41 +8,51 @@ export interface SseEvent {
 
 @Injectable()
 export class SseService implements OnModuleDestroy {
-  // Map adminId -> Subject stream
-  private readonly connections = new Map<string, Subject<MessageEvent>>();
+  // Map adminId -> Set of Subject streams to support multiple connections (tabs/devices)
+  private readonly connections = new Map<string, Set<Subject<MessageEvent>>>();
 
   addConnection(adminId: string): Subject<MessageEvent> {
-    // Close existing connection before creating new one
-    this.removeConnection(adminId);
-
     const subject = new Subject<MessageEvent>();
-    this.connections.set(adminId, subject);
+    let subjects = this.connections.get(adminId);
+    if (!subjects) {
+      subjects = new Set();
+      this.connections.set(adminId, subjects);
+    }
+    subjects.add(subject);
+    console.log(`Connection added for admin: ${adminId}. Active connections: ${subjects.size}`);
     return subject;
   }
 
-  removeConnection(adminId: string): void {
-    const subject = this.connections.get(adminId);
-    if (subject) {
+  removeConnection(adminId: string, subject: Subject<MessageEvent>): void {
+    const subjects = this.connections.get(adminId);
+    if (subjects) {
       subject.complete();
-      this.connections.delete(adminId);
+      subjects.delete(subject);
+      if (subjects.size === 0) {
+        this.connections.delete(adminId);
+      }
     }
+    console.log(`Connection removed for admin: ${adminId}. Remaining connections: ${subjects ? subjects.size : 0}`);
   }
 
   sendToAdmin(adminId: string, event: SseEvent): void {
-    const subject = this.connections.get(adminId);
-    if (subject) {
-      subject.next({ data: JSON.stringify(event) } as MessageEvent);
+    const subjects = this.connections.get(adminId);
+    if (subjects) {
+      const messageEvent = { data: JSON.stringify(event) } as MessageEvent;
+      subjects.forEach((subject) => subject.next(messageEvent));
     }
   }
 
   broadcastToAllAdmins(event: SseEvent): void {
-    this.connections.forEach((subject) => {
-      subject.next({ data: JSON.stringify(event) } as MessageEvent);
+    const messageEvent = { data: JSON.stringify(event) } as MessageEvent;
+    this.connections.forEach((subjects) => {
+      subjects.forEach((subject) => subject.next(messageEvent));
     });
   }
 
   isOnline(adminId: string): boolean {
-    return this.connections.has(adminId);
+    const subjects = this.connections.get(adminId);
+    return subjects ? subjects.size > 0 : false;
   }
 
   getOnlineAdminIds(): string[] {
@@ -50,7 +60,9 @@ export class SseService implements OnModuleDestroy {
   }
 
   onModuleDestroy(): void {
-    this.connections.forEach((subject) => subject.complete());
+    this.connections.forEach((subjects) => {
+      subjects.forEach((subject) => subject.complete());
+    });
     this.connections.clear();
   }
 }

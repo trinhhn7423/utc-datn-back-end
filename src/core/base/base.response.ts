@@ -8,6 +8,9 @@ export class BaseResponse<T> {
   message: string;
 
   @ApiProperty()
+  success: boolean;
+
+  @ApiProperty()
   data: T;
 
   @ApiProperty()
@@ -21,6 +24,7 @@ export class BaseResponse<T> {
   ) {
     this.statusCode = statusCode;
     this.message = message;
+    this.success = true;
     this.data = data;
     this.totalElement = totalElement;
   }

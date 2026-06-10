@@ -2,13 +2,25 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { DataSource, FindOptionsWhere, In, Like, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import {
+  DataSource,
+  FindOptionsWhere,
+  In,
+  Like,
+  Between,
+  MoreThanOrEqual,
+  LessThanOrEqual,
+} from 'typeorm';
 import * as _ from 'lodash';
 import { CreateOrderDto } from './dto/request/create-order.dto';
 import { CreateOrderFromCartDto } from './dto/request/create-order-from-cart.dto';
 import { PreOrderRequestDto } from './dto/request/pre-order.request.dto';
-import { PreOrderResponseDto, PreOrderItemResponseDto } from './dto/response/pre-order.response.dto';
+import {
+  PreOrderResponseDto,
+  PreOrderItemResponseDto,
+} from './dto/response/pre-order.response.dto';
 import { OrderEntity } from './entities/order.entity';
 import { OrderDetailEntity } from './entities/order-detail.entity';
 import { ProductDetailEntity } from '../products/entities/product-detail.entity';
@@ -30,7 +42,15 @@ export class OrdersService {
   async findAll(
     filterDto: OrderFilterRequestDto,
   ): Promise<[OrderEntity[], number]> {
-    const { page = 1, size = 10, status, userId, search, startDate, endDate } = filterDto;
+    const {
+      page = 1,
+      size = 10,
+      status,
+      userId,
+      search,
+      startDate,
+      endDate,
+    } = filterDto;
     const skip = (page - 1) * size;
     const baseWhere: FindOptionsWhere<OrderEntity> = {};
 
@@ -51,7 +71,10 @@ export class OrdersService {
     let whereConditions: FindOptionsWhere<OrderEntity>[] = [baseWhere];
 
     if (search) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(search);
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          search,
+        );
       if (isUuid) {
         whereConditions = [
           { ...baseWhere, id: search },
@@ -120,7 +143,10 @@ export class OrdersService {
             );
           }
 
-          if (productDetail.product && productDetail.product.isPublished === false) {
+          if (
+            productDetail.product &&
+            productDetail.product.isPublished === false
+          ) {
             throw new BadRequestException(
               `Sản phẩm ${productDetail.product.name} hiện đã ngừng bán`,
             );
@@ -167,6 +193,8 @@ export class OrdersService {
           productDetailsToUpdate,
         );
       }
+      console.log('userId', userId);
+
       const userAddress = await queryRunner.manager.findOne(UserAddressEntity, {
         where: { id: createOrderDto.userAddressId, userId },
       });
@@ -199,10 +227,13 @@ export class OrdersService {
 
       await queryRunner.commitTransaction();
 
-      const savedOrderFull = (await this.dataSource.manager.findOne(OrderEntity, {
-        where: { id: savedOrder.id },
-        relations: { orderDetails: true },
-      })) as OrderEntity;
+      const savedOrderFull = (await this.dataSource.manager.findOne(
+        OrderEntity,
+        {
+          where: { id: savedOrder.id },
+          relations: { orderDetails: true },
+        },
+      )) as OrderEntity;
 
       this.eventEmitter.emit('order.created', {
         orderId: savedOrderFull.id,
@@ -243,7 +274,9 @@ export class OrdersService {
       });
 
       if (cartItems.length !== createOrderFromCartDto.cartItemIds.length) {
-        throw new NotFoundException('Một hoặc nhiều sản phẩm trong giỏ hàng không tồn tại');
+        throw new NotFoundException(
+          'Một hoặc nhiều sản phẩm trong giỏ hàng không tồn tại',
+        );
       }
 
       const productDetailIds = cartItems.map((item) => item.productDetailId);
@@ -272,7 +305,10 @@ export class OrdersService {
             );
           }
 
-          if (productDetail.product && productDetail.product.isPublished === false) {
+          if (
+            productDetail.product &&
+            productDetail.product.isPublished === false
+          ) {
             throw new BadRequestException(
               `Sản phẩm ${productDetail.product.name} hiện đã ngừng bán`,
             );
@@ -303,7 +339,7 @@ export class OrdersService {
           );
           acc.orderDetails.push(orderDetail);
           acc.cartItemsToRemove.push(cartItem);
-          
+
           return acc;
         },
         {
@@ -321,7 +357,7 @@ export class OrdersService {
           productDetailsToUpdate,
         );
       }
-      
+
       const userAddress = await queryRunner.manager.findOne(UserAddressEntity, {
         where: { id: createOrderFromCartDto.userAddressId, userId },
       });
@@ -330,13 +366,13 @@ export class OrdersService {
           'Địa chỉ giao hàng không tồn tại hoặc không thuộc quyền sở hữu',
         );
       }
-      
+
       const shippingAddress = {
         name: userAddress.receiverName,
         phone: userAddress.receiverPhone,
         address: userAddress.detailAddress,
       };
-      
+
       const order = OrderEntity.create(
         userId,
         totalAmount,
@@ -356,10 +392,13 @@ export class OrdersService {
 
       await queryRunner.commitTransaction();
 
-      const savedOrderFull = (await this.dataSource.manager.findOne(OrderEntity, {
-        where: { id: savedOrder.id },
-        relations: { orderDetails: true },
-      })) as OrderEntity;
+      const savedOrderFull = (await this.dataSource.manager.findOne(
+        OrderEntity,
+        {
+          where: { id: savedOrder.id },
+          relations: { orderDetails: true },
+        },
+      )) as OrderEntity;
 
       this.eventEmitter.emit('order.created', {
         orderId: savedOrderFull.id,
@@ -457,7 +496,10 @@ export class OrdersService {
   ): Promise<PreOrderResponseDto> {
     const { cartItemIds, items } = preOrderDto;
 
-    if ((!cartItemIds || cartItemIds.length === 0) && (!items || items.length === 0)) {
+    if (
+      (!cartItemIds || cartItemIds.length === 0) &&
+      (!items || items.length === 0)
+    ) {
       throw new BadRequestException('Phải truyền vào cartItemIds hoặc items');
     }
 
@@ -469,7 +511,9 @@ export class OrdersService {
       });
 
       if (cartItems.length !== cartItemIds.length) {
-        throw new NotFoundException('Một hoặc nhiều sản phẩm trong giỏ hàng không tồn tại');
+        throw new NotFoundException(
+          'Một hoặc nhiều sản phẩm trong giỏ hàng không tồn tại',
+        );
       }
 
       inputItems = cartItems.map((item) => ({
@@ -479,7 +523,9 @@ export class OrdersService {
     } else if (items && items.length > 0) {
       inputItems = items.map((item) => {
         if (!item.productDetailId || !item.quantity) {
-          throw new BadRequestException('Chi tiết sản phẩm và số lượng không được để trống');
+          throw new BadRequestException(
+            'Chi tiết sản phẩm và số lượng không được để trống',
+          );
         }
         return {
           productDetailId: item.productDetailId,
@@ -489,7 +535,7 @@ export class OrdersService {
     }
 
     const productDetailIds = inputItems.map((item) => item.productDetailId);
-    
+
     const productDetails = await this.dataSource.manager.find(
       ProductDetailEntity,
       {
@@ -511,7 +557,10 @@ export class OrdersService {
         );
       }
 
-      if (productDetail.product && productDetail.product.isPublished === false) {
+      if (
+        productDetail.product &&
+        productDetail.product.isPublished === false
+      ) {
         throw new BadRequestException(
           `Sản phẩm ${productDetail.product.name} hiện đã ngừng bán`,
         );
@@ -527,8 +576,11 @@ export class OrdersService {
       const itemTotal = price * item.quantity;
       totalAmount += itemTotal;
 
-      const thumbnail = productDetail.product?.images?.find((img) => img.isThumbnail)?.imageUrl || 
-                        productDetail.product?.images?.[0]?.imageUrl || '';
+      const thumbnail =
+        productDetail.product?.images?.find((img) => img.isThumbnail)
+          ?.imageUrl ||
+        productDetail.product?.images?.[0]?.imageUrl ||
+        '';
 
       responseItems.push({
         productDetailId: productDetail.id,
@@ -546,6 +598,127 @@ export class OrdersService {
     return {
       totalAmount: totalAmount.toString(),
       items: responseItems,
+    };
+  }
+
+  async cancelOrder(orderId: string, userId: string): Promise<OrderEntity> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const order = await queryRunner.manager.findOne(OrderEntity, {
+        where: { id: orderId, userId },
+        relations: { orderDetails: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!order) {
+        throw new NotFoundException('Đơn hàng không tồn tại');
+      }
+
+      if (
+        order.status !== OrderStatus.PENDING &&
+        order.status !== OrderStatus.CONFIRMED
+      ) {
+        throw new BadRequestException(
+          'Chỉ có thể hủy đơn hàng ở trạng thái Chờ xác nhận hoặc Đã xác nhận',
+        );
+      }
+
+      order.status = OrderStatus.CANCELLED;
+
+      if (order.orderDetails) {
+        for (const detail of order.orderDetails) {
+          const productDetail = await queryRunner.manager.findOne(
+            ProductDetailEntity,
+            {
+              where: { id: detail.productDetailId },
+              lock: { mode: 'pessimistic_write' },
+            },
+          );
+
+          if (productDetail) {
+            productDetail.increaseStock(detail.quantity);
+            await queryRunner.manager.save(ProductDetailEntity, productDetail);
+          }
+        }
+      }
+
+      const savedOrder = await queryRunner.manager.save(OrderEntity, order);
+
+      await queryRunner.commitTransaction();
+
+      this.eventEmitter.emit('order.status_updated', {
+        orderId: savedOrder.id,
+        userId: savedOrder.userId,
+        newStatus: OrderStatus.CANCELLED,
+      });
+
+      return savedOrder;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async findOne(id: string, userId?: string): Promise<OrderEntity> {
+    const where: FindOptionsWhere<OrderEntity> = { id };
+    if (userId) {
+      where.userId = userId;
+    }
+    const order = await this.orderRepository.findOne({ where });
+    if (!order) {
+      throw new NotFoundException('Đơn hàng không tồn tại hoặc không có quyền truy cập');
+    }
+    return order;
+  }
+
+  async processSepayWebhook(body: any) {
+    console.log('Nhận webhook Sepay:', JSON.stringify(body));
+
+    const description = body.description || '';
+    // Tìm UUID (có hoặc không có dấu gạch ngang) nằm sau "SE"
+    const regex = /SE([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})/i;
+    const match = description.match(regex);
+
+    if (!match) {
+      console.warn('Không tìm thấy mã đơn hàng (UUID) hợp lệ trong mô tả giao dịch: ', JSON.stringify(description));
+      return { success: false, message: 'Invalid description format' };
+    }
+
+    // Ghép lại thành định dạng UUIDv4 chuẩn để truy vấn trong database
+    const orderId = `${match[1]}-${match[2]}-${match[3]}-${match[4]}-${match[5]}`.toLowerCase();
+
+    // Tìm đơn hàng
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      console.warn(`Không tìm thấy đơn hàng với ID: ${orderId}`);
+      return { success: false, message: 'Order not found' };
+    }
+
+    console.log(`Đã tìm thấy đơn hàng: ${orderId}. Trạng thái hiện tại - Đơn hàng: ${order.status}, Thanh toán: ${order.paymentStatus}`);
+
+    // Nếu đơn hàng đã thanh toán rồi thì trả về thành công để tránh xử lý trùng (idempotency)
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      console.log(`Đơn hàng ${orderId} đã được thanh toán trước đó.`);
+      return { success: true, message: 'Order already paid' };
+    }
+
+    // Cập nhật trạng thái đơn hàng sang CONFIRMED và thanh toán sang PAID
+    // Hàm updateOrderStatus sẽ tự động trigger phát event 'order.status_updated' để gửi notification/FCM cho user
+    await this.updateOrderStatus(orderId, OrderStatus.CONFIRMED, PaymentStatus.PAID);
+
+    console.log(`Cập nhật trạng thái đơn hàng ${orderId} sang CONFIRMED và PAID thành công.`);
+
+    return {
+      success: true,
+      message: 'Payment processed successfully',
     };
   }
 }

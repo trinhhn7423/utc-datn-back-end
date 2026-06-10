@@ -83,18 +83,16 @@ export class OrdersController {
   }
 
   @Post('pre-order')
-  @ApiOperation({ summary: 'Xem trước thông tin đơn hàng (từ giỏ hàng hoặc mua ngay)' })
+  @ApiOperation({
+    summary: 'Xem trước thông tin đơn hàng (từ giỏ hàng hoặc mua ngay)',
+  })
   @ApiResponse({ status: 200, type: BaseResponse<PreOrderResponseDto> })
   async preOrder(
     @CurrentUser('id') userId: string,
     @Body() preOrderRequestDto: PreOrderRequestDto,
   ): Promise<BaseResponse<PreOrderResponseDto>> {
     const data = await this.ordersService.preOrder(userId, preOrderRequestDto);
-    return new BaseResponse(
-      200,
-      'Lấy thông tin pre-order thành công',
-      data,
-    );
+    return new BaseResponse(200, 'Lấy thông tin pre-order thành công', data);
   }
 
   @Roles(RoleEnum.ADMIN)
@@ -111,6 +109,51 @@ export class OrdersController {
       status,
       paymentStatus,
     );
-    return new BaseResponse(200, 'Cập nhật trạng thái đơn hàng thành công', order.toResponse());
+    return new BaseResponse(
+      200,
+      'Cập nhật trạng thái đơn hàng thành công',
+      order.toResponse(),
+    );
+  }
+
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Hủy đơn hàng' })
+  @ApiResponse({ status: 200, type: BaseResponse<OrderResponseDto> })
+  async cancel(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<BaseResponse<OrderResponseDto>> {
+    const order = await this.ordersService.cancelOrder(id, userId);
+    return new BaseResponse(200, 'Hủy đơn hàng thành công', order.toResponse());
+  }
+
+  @Get(':id/qr-code')
+  @ApiOperation({
+    summary: 'Tạo URL mã QR chuyển tiền qua Sepay cho đơn hàng',
+  })
+  @ApiResponse({ status: 200 })
+  async generateQrCode(
+    @Param('id') id: string,
+    @Query('bank') bank: string,
+    @Query('acc') acc: string,
+    @CurrentUser('id') userId: string,
+    @Query('template') template?: string,
+  ): Promise<BaseResponse<{ qrUrl: string }>> {
+    const order = await this.ordersService.findOne(id, userId);
+
+    const params = new URLSearchParams();
+    if (bank) params.append('bank', bank);
+    if (acc) params.append('acc', acc);
+    
+    // Set số tiền từ tổng số tiền của đơn hàng
+    params.append('amount', Number(order.totalAmount).toString());
+    
+    // Set nội dung chuyển khoản theo cú pháp: Thanh toan don hang SE+mã đơn hàng
+    params.append('des', `Thanh toan don hang SE${order.id}`);
+    
+    if (template) params.append('template', template);
+
+    const qrUrl = `https://qr.sepay.vn/img?${params.toString()}`;
+    return new BaseResponse(200, 'Tạo link QR thành công', { qrUrl });
   }
 }

@@ -5,6 +5,7 @@ import {
   UseGuards,
   ParseIntPipe,
   DefaultValuePipe,
+  Res,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -30,6 +31,11 @@ import { TopCustomerResponseDto } from './dto/response/top-customer.response.dto
 import { UserStatisticsResponseDto } from './dto/response/user-statistics.response.dto';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { BaseResponse } from '../../core/base/base.response';
+import { GetSalesReportRequestDto } from './dto/request/get-sales-report.request.dto';
+import { SalesReportItemDto } from './dto/response/sales-report.response.dto';
+import { CategoryDistributionDto } from './dto/response/category-distribution.response.dto';
+import { CustomerLoyaltyDto } from './dto/response/customer-loyalty.response.dto';
+import type { Response } from 'express';
 
 @ApiTags('Statistics')
 @ApiBearerAuth()
@@ -113,5 +119,54 @@ export class StatisticsController {
   ): Promise<BaseResponse<UserStatisticsResponseDto>> {
     const data = await this.statisticsService.getUserStatistics(userId);
     return new BaseResponse(200, 'Lấy thống kê cá nhân thành công', data);
+  }
+
+  // ─── PHASE 1: NEW ANALYTICS ENDPOINTS ────────────────────────────────────────
+
+  @Roles(RoleEnum.ADMIN)
+  @Get('sales-report')
+  @ApiOperation({ summary: 'Báo cáo doanh số theo khoảng thời gian tùy chọn' })
+  @ApiResponse({ status: 200, type: BaseResponse<SalesReportItemDto[]> })
+  async getSalesReport(
+    @Query() dto: GetSalesReportRequestDto,
+  ): Promise<BaseResponse<SalesReportItemDto[]>> {
+    const data = await this.statisticsService.getSalesReport(dto);
+    return new BaseResponse(200, 'Lấy báo cáo doanh số thành công', data);
+  }
+
+  @Roles(RoleEnum.ADMIN)
+  @Get('category-distribution')
+  @ApiOperation({ summary: 'Tỷ trọng doanh thu theo danh mục sản phẩm' })
+  @ApiResponse({ status: 200, type: BaseResponse<CategoryDistributionDto[]> })
+  async getCategoryDistribution(): Promise<BaseResponse<CategoryDistributionDto[]>> {
+    const data = await this.statisticsService.getCategoryDistribution();
+    return new BaseResponse(200, 'Lấy tỷ trọng danh mục thành công', data);
+  }
+
+  @Roles(RoleEnum.ADMIN)
+  @Get('customer-loyalty')
+  @ApiOperation({ summary: 'Tỷ lệ khách hàng mới vs khách hàng quay lại' })
+  @ApiResponse({ status: 200, type: BaseResponse<CustomerLoyaltyDto> })
+  async getCustomerLoyalty(): Promise<BaseResponse<CustomerLoyaltyDto>> {
+    const data = await this.statisticsService.getCustomerLoyalty();
+    return new BaseResponse(200, 'Lấy tỷ lệ khách hàng thành công', data);
+  }
+
+  @Roles(RoleEnum.ADMIN)
+  @Get('export/sales')
+  @ApiOperation({ summary: 'Xuất báo cáo doanh số ra file Excel (.xlsx)' })
+  async exportSalesExcel(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.statisticsService.exportSalesReportExcel(startDate, endDate);
+    const filename = `bao-cao-doanh-so-${startDate}-${endDate}.xlsx`;
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
   }
 }

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { CategoryEntity } from '../../categories/entities/category.entity';
 import { ProductDetailEntity } from './product-detail.entity';
 import { ProductImageEntity } from './product-image.entity';
@@ -28,6 +28,12 @@ export class ProductEntity {
 
   @Column({ name: 'is_published', default: true })
   isPublished: boolean;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 
   @ManyToOne(() => CategoryEntity, (category) => category.products)
   @JoinColumn({ name: 'category_id' })
@@ -65,6 +71,8 @@ export class ProductEntity {
     response.brand = this.brand;
     response.origin = this.origin;
     response.isPublished = this.isPublished;
+    response.createdAt = this.createdAt;
+    response.updatedAt = this.updatedAt;
 
     if (this.category) {
       response.category = this.category.toResponse();

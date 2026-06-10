@@ -22,4 +22,7 @@ export class UserResponseDto {
 
   @ApiProperty()
   createdAt: Date;
+
+  @ApiProperty({ example: 0 })
+  viewsCount: number;
 }

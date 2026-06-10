@@ -26,4 +26,14 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   avatarUrl?: string;
+
+  @ApiPropertyOptional({ example: '0987654321' })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiPropertyOptional({ example: '123 Cầu Giấy, Hà Nội' })
+  @IsString()
+  @IsOptional()
+  address?: string;
 }

@@ -55,7 +55,7 @@ import { LoggerMiddleware } from './core/middleware/logger.middleware';
         database: configService.get<string>(EnvVars.DB_DATABASE, 'datn_utc'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: true, // Should be false in production
-        logging: true,
+        // logging: true,
       }),
       inject: [ConfigService],
     }),
